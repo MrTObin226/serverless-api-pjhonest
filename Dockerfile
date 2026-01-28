@@ -1,11 +1,4 @@
-# Берем готовую основу с Python
-FROM python:3.11-slim
-
-# Устанавливаем библиотеку runpod
-RUN pip install runpod
-
-# Копируем наш скрипт внутрь коробки
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+RUN pip install runpod diffusers transformers accelerate requests pillow
 COPY handler.py /handler.py
-
-# Команда, которую выполнит RunPod при запуске
 CMD [ "python", "-u", "/handler.py" ]

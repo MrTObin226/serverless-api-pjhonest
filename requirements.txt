@@ -1,1 +1,7 @@
 runpod
+torch
+diffusers
+transformers
+accelerate
+requests
+pillow
