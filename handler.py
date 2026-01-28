@@ -1,50 +1,44 @@
 import runpod
-import torch
 import os
-import base64
-from diffusers import WanImageToVideoPipeline
-from PIL import Image
-import io
+import requests
 
-# Путь к нашей "флешке" внутри RunPod
-MODEL_PATH = "/runpod-volume/wan21-i2v-480p"
+# Твои настройки (передай их через Environment Variables в панели RunPod)
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+ARCHIVE_CHANNEL_ID = os.environ.get("ARCHIVE_CHANNEL_ID")
 
-pipe = None
-
-def load_models():
-    global pipe
-    # Используем bfloat16 для экономии памяти и FP8 для скорости
-    pipe = WanImageToVideoPipeline.from_pretrained(MODEL_PATH, torch_dtype=torch.bfloat16)
-    pipe.to("cuda")
-    # Включаем TeaCache для 2х ускорения
-    # pipe.enable_teacache(threshold=0.1)
 
 def handler(job):
+    """
+    Основная функция-обработчик
+    """
     job_input = job['input']
-    prompt = job_input.get('prompt')
-    image_b64 = job_input.get('image')
-    lora_name = job_input.get('lora') # Если нужно дополнение
+    prompt = job_input.get('prompt', 'No prompt')
 
-    # Декодируем фото
-    image_data = base64.b64decode(image_b64)
-    init_image = Image.open(io.BytesIO(image_data)).convert("RGB")
+    # --- ТУТ БУДЕТ ГЕНЕРАЦИЯ ВИДЕО (Wan2.1) ---
+    # Пока для теста создаем пустой файл или имитируем его
+    temp_file_path = "/tmp/test_video.mp4"
+    with open(temp_file_path, "w") as f:
+        f.write("fake video data")
 
-    # Если есть LoRA
-    if lora_name:
-        pipe.load_lora_weights(f"/runpod-volume/loras/{lora_name}")
+    # --- ОТПРАВКА В TELEGRAM (Хранилище без карт) ---
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendVideo"
 
-    # Генерация (ставим 480p для экономии денег)
-    video_frames = pipe(
-        prompt,
-        image=init_image,
-        num_frames=81,
-        target_shape=(480, 832) # Экономное разрешение
-    ).frames[0]
+    try:
+        with open(temp_file_path, 'rb') as video_file:
+            payload = {'chat_id': ARCHIVE_CHANNEL_ID}
+            files = {'video': video_file}
+            response = requests.post(url, data=payload, files=files).json()
 
-    # Сохраняем видео (здесь нужно добавить загрузку в S3, как обсуждали ранее)
-    # Для теста вернем имитацию ссылки
-    return {"video_url": "https://your-s3-storage.com/output_video.mp4"}
+        if response.get('ok'):
+            # Возвращаем боту уникальный ID файла в системе Telegram
+            file_id = response['result']['video']['file_id']
+            return {"file_id": file_id, "status": "success"}
+        else:
+            return {"error": response.get("description"), "status": "error"}
 
-if __name__ == "__main__":
-    load_models()
-    runpod.serverless.start({"handler": handler})
+    except Exception as e:
+        return {"error": str(e), "status": "error"}
+
+
+# ВАЖНО: Именно эту строчку ищет RunPod!
+runpod.serverless.start({"handler": handler})
