@@ -5,39 +5,54 @@ import os
 from io import BytesIO
 from PIL import Image
 
+# Здесь должен быть импорт пайплайна Wan
+# Например: from wan.generation import WanVideoPipeline
 
-# Импорты для Wan2.2 зависят от конкретной реализации (diffusers или кастомный код)
-# Предположим использование стандартного пайплайна
+# Инициализируем модель глобально, чтобы она не грузилась при каждом запросе
+device = "cuda" if torch.cuda.is_available() else "cpu"
+pipe = None
 
-def decode_base64_to_image(img_str):
-    if "base64," in img_str:
-        img_str = img_str.split("base64,")[1]
-    img_data = base64.b64decode(img_str)
-    return Image.open(BytesIO(img_data))
+
+def load_pipeline():
+    global pipe
+    if pipe is None:
+        print("Loading Wan 2.2 model...")
+        # Пример инициализации (зависит от официального SDK Wan)
+        # pipe = WanVideoPipeline.from_pretrained("/models/Wan2.1-I2V-14B", torch_dtype=torch.float16)
+        # pipe.to(device)
+        pass
 
 
 def handler(job):
-    job_input = job['input']
+    """
+    Основная функция-обработчик для RunPod
+    """
+    # 1. Загружаем модель, если она еще не загружена
+    load_pipeline()
 
-    # Получаем параметры из твое.го бота
-    prompt = job_input.get("prompt")
-    image_b64 = job_input.get("image")
-    num_frames = job_input.get("num_frames", 49)
+    # 2. Получаем входные данные из бота
+    job_input = job.get('input', {})
+    prompt = job_input.get('prompt', 'Professional video enhancement')
+    image_b64 = job_input.get('image')  # Строка data:image/jpeg;base64,...
+
+    if not image_b64:
+        return {"error": "No image provided"}
 
     try:
-        # 1. Подготовка изображения
-        input_image = decode_base64_to_image(image_b64)
+        # Логика обработки:
+        # 1. Декодируем Base64 в PIL Image
+        # 2. Запускаем генерацию pipe(prompt, image=...)
+        # 3. Сохраняем результат в mp4
+        # 4. Выгружаем (например, в облако) и возвращаем ссылку
 
-        # 2. Здесь логика вызова модели Wan2.2
-        # Пример:
-        # video_path = pipeline.generate(prompt, image=input_image, frames=num_frames)
-
-        # 3. Загрузка результата (например, в S3 или возврат временной ссылки)
-        # Для простоты вернем заглушку, которую твой бот ожидает:
-        return {"video_url": "https://your-storage.com/output.mp4"}
-
+        return {
+            "video_url": "https://your-storage.com/result_id.mp4",
+            "status": "COMPLETED"
+        }
     except Exception as e:
         return {"error": str(e)}
 
 
-runpod.serverless.start({"handler": handler})
+# --- САМАЯ ВАЖНАЯ ЧАСТЬ ДЛЯ RUNPOD ---
+if __name__ == "__main__":
+    runpod.serverless.start({"handler": handler})
