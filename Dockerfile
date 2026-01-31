@@ -41,9 +41,13 @@ RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_
 
 # Твоя Cyberpunk LoRA
 # Создаем папку для лор, если её нет, и скачиваем файл с игнорированием проверки сертификата
+# 1. Устанавливаем необходимые пакеты для работы с сетью
+RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
+
+# 2. Создаем папку и скачиваем через curl (флаг -L обязателен для редиректов Civitai)
 RUN mkdir -p /ComfyUI/models/loras && \
-    wget -q --no-check-certificate "https://civitai.com/api/download/models/2553271?type=Model&format=SafeTensor" -O /ComfyUI/models/loras/cyberpunk_style.safetensors
-# Копируем скрипты (в самом конце!)
+    curl -L -k "https://civitai.com/api/download/models/2553271?type=Model&format=SafeTensor" \
+    -o /ComfyUI/models/loras/cyberpunk_style.safetensors
 COPY . .
 COPY extra_model_paths.yaml /ComfyUI/extra_model_paths.yaml
 RUN chmod +x /entrypoint.sh
