@@ -58,7 +58,9 @@ def handler(job):
     # 3. Подстановка параметров
     prompt_text = job_input.get("prompt", "a cinematic video")
     steps = job_input.get("steps", 15)
-
+    # Подстановка шагов в ноду 569
+    if "569" in workflow:
+        workflow["569"]["inputs"]["value"] = steps
     # Ищем ноды и меняем значения (ID взяты из твоего new_Wan22_api.json)
     if "244" in workflow:  # LoadImage
         workflow["244"]["inputs"]["image"] = image_filename
@@ -90,8 +92,22 @@ def handler(job):
                 outputs = history[prompt_id].get('outputs', {})
                 # Ищем видео (VHS_VideoCombine обычно node 131)
                 for node_id, content in outputs.items():
-                    if 'gifs' in content:  # VHS иногда возвращает gifs даже для mp4
-                        video_path = f"/ComfyUI/output/{content['gifs'][0]['filename']}"
+                    # ЗАМЕНИТЕ цикл поиска на этот:
+                    for node_id, content in outputs.items():
+                        # Ищем именно ноду видео-комбайнера (131)
+                        if node_id == "131" and 'videos' in content and content['videos']:
+                            video_filename = content['videos'][0]['filename']
+                            video_path = f"/ComfyUI/output/{video_filename}"
+
+                            if os.path.exists(video_path):
+                                with open(video_path, "rb") as f:
+                                    video_b64 = base64.b64encode(f.read()).decode('utf-8')
+                                    return {"video_url": f"data:video/mp4;base64,{video_b64}"}
+
+                        # Fallback для крайних случаев (не основной путь!)
+                        elif 'gifs' in content and content['gifs']:
+                            # ... обработка GIF (не нужно для вашего случая)
+                            pass
 
                         # Кодируем видео в base64 для возврата
                         with open(video_path, "rb") as f:

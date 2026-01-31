@@ -14,7 +14,9 @@ RUN pip install opencv-python-headless \
     imageio-ffmpeg \
     einops \
     transformers \
-    diffusers
+    diffusers \
+    ftfy  \
+
 WORKDIR /
 
 # Клонируем основной ComfyUI
