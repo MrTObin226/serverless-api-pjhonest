@@ -8,7 +8,7 @@ import uuid
 from io import BytesIO
 
 COMFY_URL = "http://127.0.0.1:8188"
-WORKFLOW_FILE = "workflow_wan22.json"
+WORKFLOW_FILE = "new_Wan22_api.json"
 
 
 def wait_for_comfy():

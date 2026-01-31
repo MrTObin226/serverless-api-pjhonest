@@ -229,25 +229,14 @@
     }
   },
   "279": {
-    "inputs": {
-      "lora_0": "high_noise_model.safetensors",
-      "strength_0": 1,
-      "lora_1": "none",
-      "strength_1": 1,
-      "lora_2": "none",
-      "strength_2": 0.8,
-      "lora_3": "none",
-      "strength_3": 1.0000000000000002,
-      "lora_4": "none",
-      "strength_4": 1.0000000000000002,
-      "low_mem_load": false,
-      "merge_loras": false
+      "inputs": {
+        "lora_name": "cyberpunk_style.safetensors"
+      },
+      "class_type": "WanVideoLoraSelect",
+      "_meta": {
+        "title": "WanVideo Lora Select"
+      }
     },
-    "class_type": "WanVideoLoraSelectMulti",
-    "_meta": {
-      "title": "WanVideo Lora Select Multi"
-    }
-  },
   "498": {
     "inputs": {
       "context_schedule": "static_standard",
