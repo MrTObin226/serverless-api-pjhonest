@@ -1,7 +1,8 @@
 runpod
 torch
+torchvision
 diffusers
 transformers
 accelerate
-requests
 pillow
+sentencepiece
