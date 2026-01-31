@@ -1,8 +1,0 @@
-runpod
-torch
-torchvision
-diffusers
-transformers
-accelerate
-pillow
-sentencepiece
