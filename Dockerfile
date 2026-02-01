@@ -15,7 +15,7 @@ RUN pip install opencv-python-headless \
     einops \
     transformers \
     diffusers \
-    ftfy  \
+    ftfy \
 
 WORKDIR /
 
