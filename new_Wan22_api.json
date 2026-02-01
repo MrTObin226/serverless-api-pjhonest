@@ -116,9 +116,10 @@
     },
     "class_type": "LoadImage"
   },
-  "279": {
+"279": {
     "inputs": {
-      "lora_name": "cyberpunk_style.safetensors"
+      "lora": "cyberpunk_style.safetensors",
+      "strength": 1.0
     },
     "class_type": "WanVideoLoraSelect"
   },
