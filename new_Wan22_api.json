@@ -40,19 +40,16 @@
     },
     "class_type": "LoadWanVideoT5TextEncoder"
   },
-  "171": {
-    "inputs": {
-      "width": 480,
-      "height": 832,
-      "upscale_method": "lanczos",
-      "keep_proportion": "crop",
-      "image": [
-        "244",
-        0
-      ]
-    },
-    "class_type": "ImageScale"
+"171": {
+  "inputs": {
+    "upscale_method": "nearest-exact",
+    "width": 480,
+    "height": 832,
+    "crop": "center",
+    "image": ["244", 0]
   },
+  "class_type": "ImageScale"
+},
   "173": {
     "inputs": {
       "clip_name": "clip_vision_h.safetensors"

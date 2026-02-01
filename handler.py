@@ -116,7 +116,7 @@ def handler(job):
                             os.remove(video_path)
                             os.remove(os.path.join(INPUT_DIR, image_filename))
 
-                            return {"video_base64": video_b64, "seed": seed}
+                            return {"video_url": f"data:video/mp4;base64,{video_b64}", "seed": seed}
 
             time.sleep(2)
 
