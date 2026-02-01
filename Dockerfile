@@ -12,7 +12,7 @@ RUN pip install -r requirements.txt
 
 # Python-зависимости (ТОЛЬКО необходимые)
 RUN python -m pip install -U pip && \
-    python -m pip install opencv-python-headless accelerate transformers diffusers ftfy Pillow einops imageio-ffmpeg
+    python -m pip install opencv-python-headless accelerate transformers diffusers ftfy Pillow einops imageio-ffmpeg gguf
 
 # Проверка (падает на этапе сборки при ошибке)
 RUN python -c "import ftfy; import cv2; print('✅ ftfy и cv2 работают')" || (echo '❌ ОШИБКА' && exit 1)
