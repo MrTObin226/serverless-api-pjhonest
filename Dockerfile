@@ -8,17 +8,8 @@ RUN apt-get update && apt-get install -y \
 RUN pip install -U "huggingface_hub[hf_transfer]"
 RUN pip install runpod websocket-client requests
 # Установка необходимых библиотек для нод
-RUN pip install opencv-python-headless \
-    accelerate \
-    gguf \
-    imageio-ffmpeg \
-    einops \
-    transformers \
-    diffusers \
-    ftfy \
-
+RUN pip install opencv-python-headless accelerate gguf imageio-ffmpeg einops transformers diffusers ftfy Pillow
 WORKDIR /
-
 # Клонируем основной ComfyUI
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
     cd /ComfyUI && \
