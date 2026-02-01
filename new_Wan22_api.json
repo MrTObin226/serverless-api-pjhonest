@@ -96,33 +96,17 @@
       "title": "WanVideo T5 Text Encoder Loader"
     }
   },
-  "171": {
-    "inputs": {
-      "width": [
-        "235",
-        0
-      ],
-      "height": [
-        "236",
-        0
-      ],
-      "upscale_method": "lanczos",
-      "keep_proportion": "crop",
-      "pad_color": "0, 0, 0",
-      "crop_position": "center",
-      "divisible_by": 2,
-      "device": "cpu",
-      "per_batch": 0,
-      "image": [
-        "244",
-        0
-      ]
-    },
-    "class_type": "ImageResizeKJv2",
-    "_meta": {
-      "title": "Resize Image v2"
-    }
+"171": {
+  "inputs": {
+    "width": 480,
+    "height": 832,
+    "upscale_method": "lanczos",
+    "crop": "center",
+    "image": ["244", 0]
   },
+  "class_type": "ImageScale",  // ← СТАНДАРТНЫЙ УЗЕЛ (не требует KJNodes)
+  "_meta": {"title": "Resize Image"}
+},
   "173": {
     "inputs": {
       "clip_name": "clip_vision_h.safetensors"
