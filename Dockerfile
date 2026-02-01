@@ -36,8 +36,9 @@ RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/
     wget -q https://huggingface.co/lightx2v/Wan2.2-Lightning/resolve/main/Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1/high_noise_model.safetensors -O /ComfyUI/models/loras/high_noise_model.safetensors
 
 # Cyberpunk LoRA (БЕЗ ПРОБЕЛОВ в конце URL!)
-RUN curl -L "https://civitai.com/api/download/models/2553271?type=Model&format=SafeTensor" -o /ComfyUI/models/loras/cyberpunk_style.safetensors
-
+RUN wget -q --header="Authorization: Bearer c056bf57d3819491f7ffd7bb814ea189" \
+    -L "https://civitai.com/api/download/models/2553271?type=Model&format=SafeTensor" \
+    -O /ComfyUI/models/loras/cyberpunk_style.safetensors
 # 8. Файлы
 COPY extra_model_paths.yaml /ComfyUI/
 COPY handler.py new_Wan22_api.json /ComfyUI/

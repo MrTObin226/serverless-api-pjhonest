@@ -119,7 +119,8 @@
 "279": {
     "inputs": {
       "lora": "cyberpunk_style.safetensors",
-      "strength": 1.0
+      "strength": 1.0,
+      "merge_loras": false
     },
     "class_type": "WanVideoLoraSelect"
   },
