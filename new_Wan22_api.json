@@ -51,7 +51,7 @@
         0
       ]
     },
-    "class_type": "ImageResizeKJv2"
+    "class_type": "ImageScale"
   },
   "173": {
     "inputs": {
