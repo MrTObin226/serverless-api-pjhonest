@@ -8,7 +8,7 @@ cd /ComfyUI
 
 # 1. Запуск ComfyUI в фоне с указанием конфига моделей
 echo "Starting ComfyUI..."
-python main.py --listen --extra-model-paths-config extra_model_paths.yaml &
+python main.py --lowvram --listen --extra-model-paths-config extra_model_paths.yaml &
 
 # 2. Ожидание готовности (твой цикл — отличный)
 echo "Waiting for ComfyUI to be ready..."
