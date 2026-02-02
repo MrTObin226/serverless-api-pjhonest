@@ -71,12 +71,11 @@ def handler(job):
         with open(WORKFLOW_FILE, "r") as f:
             workflow = json.load(f)
 
-        # --- НАСТРОЙКА WORKFLOW ---
-        # 1. Входное изображение
+        # 1. Подставляем картинку
         if "244" in workflow:
             workflow["244"]["inputs"]["image"] = input_filename
 
-        # 2. Промпт пользователя
+        # 2. Подставляем промпт (LoRA активируется триггер-словами в нем)
         user_prompt = job_input.get("prompt", "cinematic motion")
         if "135" in workflow:
             workflow["135"]["inputs"]["positive_prompt"] = user_prompt
@@ -86,18 +85,10 @@ def handler(job):
         if "220" in workflow:
             workflow["220"]["inputs"]["seed"] = seed
 
-        # 4. Логика Киберпанк LoRA
-        # Если в промпте есть слово "cyberpunk" (регистронезависимо), включаем LoRA на 100%
-        is_cyberpunk = "cyberpunk" in user_prompt.lower()
-        if "280" in workflow:  # Узел LoRA Киберпанк
-            workflow["280"]["inputs"]["strength"] = 0.8 if is_cyberpunk else 0.0
-            log(f"🔧 Cyberpunk Mode: {'ON' if is_cyberpunk else 'OFF'}")
-
-        # 5. Путь сохранения
+        # 4. Префикс сохранения
         if "131" in workflow:
             workflow["131"]["inputs"]["filename_prefix"] = f"{request_id}/Wan"
 
-        # --- ОТПРАВКА ЗАДАЧИ ---
         res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow, "client_id": request_id})
         if res.status_code != 200:
             return {"error": f"ComfyUI Error: {res.text}"}
@@ -106,7 +97,7 @@ def handler(job):
         log(f"📢 Задача {request_id} отправлена. Seed: {seed}")
 
         start_time = time.time()
-        timeout = job_input.get("timeout", 900)  # 15 минут таймаут
+        timeout = job_input.get("timeout", 1000)
 
         while True:
             if time.time() - start_time > timeout:
@@ -116,28 +107,21 @@ def handler(job):
             if history_res.status_code == 200:
                 history = history_res.json()
                 if prompt_id in history:
-                    # Проверяем, была ли ошибка при генерации
-                    run_data = history[prompt_id]
-                    if not run_data.get('status', {}).get('completed', False):
-                        # Пытаемся найти сообщение об ошибке в ответе
-                        return {"error": "Generation failed inside ComfyUI"}
+                    # Проверка на внутреннюю ошибку ComfyUI
+                    if 'outputs' not in history[prompt_id]:
+                        return {"error": "ComfyUI execution failed. Check logs."}
 
-                    log(f"✅ Готово. Ищем файл в {job_output_dir}...")
+                    log(f"✅ Готово. Ищем файл...")
+                    time.sleep(2)  # Даем время ФС сохранить файл
                     candidates = glob.glob(os.path.join(job_output_dir, "*.mp4"))
 
                     if not candidates:
-                        # Иногда файловая система тормозит, даем второй шанс
-                        time.sleep(2)
-                        candidates = glob.glob(os.path.join(job_output_dir, "*.mp4"))
-                        if not candidates:
-                            return {"error": "Video file not found created"}
+                        return {"error": "Video file not found"}
 
                     video_path = candidates[0]
-                    log(f"🎬 Файл найден: {video_path}")
-
                     video_url = upload_to_transfer_sh(video_path)
-                    response = {"seed": seed, "status": "success"}
 
+                    response = {"seed": seed, "status": "success"}
                     if video_url:
                         response["video_url"] = video_url
                     else:
@@ -145,7 +129,7 @@ def handler(job):
 
                     return response
 
-            time.sleep(3)
+            time.sleep(5)
 
     except Exception as e:
         log(f"❌ Критическая ошибка: {str(e)}")
