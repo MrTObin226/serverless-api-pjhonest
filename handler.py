@@ -6,7 +6,7 @@ import time
 import base64
 import uuid
 import glob
-import shutil  # Добавлено для удаления папок
+import shutil
 
 COMFY_URL = "http://127.0.0.1:8188"
 WORKFLOW_FILE = "/ComfyUI/new_Wan22_api.json"
@@ -51,7 +51,6 @@ def wait_for_comfy():
 
 
 def handler(job):
-    # Создаем уникальные ID и пути СРАЗУ
     request_id = str(uuid.uuid4())
     job_output_dir = os.path.join(OUTPUT_BASE, request_id)
     input_filename = f"input_{request_id}.png"
@@ -62,7 +61,6 @@ def handler(job):
         b64_image = job_input.get("image_base64") or job_input.get("image")
         if not b64_image: return {"error": "Image is required"}
 
-        # 1. Подготовка папок и входного файла
         os.makedirs(INPUT_DIR, exist_ok=True)
         os.makedirs(job_output_dir, exist_ok=True)
 
@@ -70,27 +68,45 @@ def handler(job):
         with open(input_path, "wb") as f:
             f.write(base64.b64decode(b64_image))
 
-        # 2. Настройка Workflow
         with open(WORKFLOW_FILE, "r") as f:
             workflow = json.load(f)
 
-        if "244" in workflow: workflow["244"]["inputs"]["image"] = input_filename
-        if "135" in workflow: workflow["135"]["inputs"]["positive_prompt"] = job_input.get("prompt", "cinematic motion")
+        # --- НАСТРОЙКА WORKFLOW ---
+        # 1. Входное изображение
+        if "244" in workflow:
+            workflow["244"]["inputs"]["image"] = input_filename
 
+        # 2. Промпт пользователя
+        user_prompt = job_input.get("prompt", "cinematic motion")
+        if "135" in workflow:
+            workflow["135"]["inputs"]["positive_prompt"] = user_prompt
+
+        # 3. Seed
         seed = job_input.get("seed", int(time.time() * 1000) % 1000000000)
-        if "220" in workflow: workflow["220"]["inputs"]["seed"] = seed
+        if "220" in workflow:
+            workflow["220"]["inputs"]["seed"] = seed
 
-        # КЛЮЧЕВОЙ МОМЕНТ: VHS Combine сохранит файл ВНУТРЬ нашей уникальной папки
+        # 4. Логика Киберпанк LoRA
+        # Если в промпте есть слово "cyberpunk" (регистронезависимо), включаем LoRA на 100%
+        is_cyberpunk = "cyberpunk" in user_prompt.lower()
+        if "280" in workflow:  # Узел LoRA Киберпанк
+            workflow["280"]["inputs"]["strength"] = 0.8 if is_cyberpunk else 0.0
+            log(f"🔧 Cyberpunk Mode: {'ON' if is_cyberpunk else 'OFF'}")
+
+        # 5. Путь сохранения
         if "131" in workflow:
             workflow["131"]["inputs"]["filename_prefix"] = f"{request_id}/Wan"
 
-        # 3. Отправка
+        # --- ОТПРАВКА ЗАДАЧИ ---
         res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow, "client_id": request_id})
+        if res.status_code != 200:
+            return {"error": f"ComfyUI Error: {res.text}"}
+
         prompt_id = res.json().get('prompt_id')
         log(f"📢 Задача {request_id} отправлена. Seed: {seed}")
 
         start_time = time.time()
-        timeout = job_input.get("timeout", 900)
+        timeout = job_input.get("timeout", 900)  # 15 минут таймаут
 
         while True:
             if time.time() - start_time > timeout:
@@ -100,28 +116,34 @@ def handler(job):
             if history_res.status_code == 200:
                 history = history_res.json()
                 if prompt_id in history:
-                    log(f"✅ Готово. Ищем файл в {job_output_dir}...")
+                    # Проверяем, была ли ошибка при генерации
+                    run_data = history[prompt_id]
+                    if not run_data.get('status', {}).get('completed', False):
+                        # Пытаемся найти сообщение об ошибке в ответе
+                        return {"error": "Generation failed inside ComfyUI"}
 
-                    # Ищем ТОЛЬКО в нашей папке. Никаких get_latest_video!
+                    log(f"✅ Готово. Ищем файл в {job_output_dir}...")
                     candidates = glob.glob(os.path.join(job_output_dir, "*.mp4"))
 
                     if not candidates:
-                        return {"error": "Video file not found in job directory"}
+                        # Иногда файловая система тормозит, даем второй шанс
+                        time.sleep(2)
+                        candidates = glob.glob(os.path.join(job_output_dir, "*.mp4"))
+                        if not candidates:
+                            return {"error": "Video file not found created"}
 
                     video_path = candidates[0]
                     log(f"🎬 Файл найден: {video_path}")
 
-                    # 4. Загрузка/Кодирование
                     video_url = upload_to_transfer_sh(video_path)
+                    response = {"seed": seed, "status": "success"}
 
-                    response_payload = {"seed": seed, "status": "success"}
                     if video_url:
-                        response_payload["video_url"] = video_url
+                        response["video_url"] = video_url
                     else:
-                        log("⚠️ Используем Base64 fallback")
-                        response_payload["video_base64"] = encode_file_to_base64(video_path)
+                        response["video_base64"] = encode_file_to_base64(video_path)
 
-                    return response_payload
+                    return response
 
             time.sleep(3)
 
@@ -130,7 +152,6 @@ def handler(job):
         return {"error": str(e)}
 
     finally:
-        # ГАРАНТИРОВАННАЯ ЧИСТКА: Удаляем входной файл и ВСЮ папку вывода
         if os.path.exists(input_path): os.remove(input_path)
         if os.path.exists(job_output_dir): shutil.rmtree(job_output_dir)
 
