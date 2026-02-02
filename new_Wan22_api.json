@@ -83,7 +83,7 @@
       "shift": 9.0,
       "seed": 42,
       "force_offload": false,
-      "scheduler": "simple",
+      "scheduler": "dpm++_sde",
       "riflex_freq_index": 0,
       "denoise_strength": 1,
       "batched_cfg": false,
