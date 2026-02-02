@@ -21,7 +21,7 @@
     "inputs": {
       "positive_prompt": "running man, grab the gun",
       "negative_prompt": "bright tones, overexposed, static, blurred details, worst quality, low quality, ugly",
-      "force_offload": true,
+      "force_offload": false,
       "use_disk_cache": false,
       "device": "gpu",
       "t5": [
@@ -62,7 +62,7 @@
       "strength_2": 1.0,
       "crop": "center",
       "combine_embeds": "average",
-      "force_offload": true,
+      "force_offload": false,
       "tiles": 0,
       "ratio": 0.5,
       "clip_vision": [
@@ -78,12 +78,12 @@
   },
   "220": {
     "inputs": {
-      "steps": 15,
-      "cfg": 6.0,
+      "steps": 6,
+      "cfg": 1.0,
       "shift": 9.0,
       "seed": 42,
-      "force_offload": true,
-      "scheduler": "dpm++_sde",
+      "force_offload": false,
+      "scheduler": "simple",
       "riflex_freq_index": 0,
       "denoise_strength": 1,
       "batched_cfg": false,
@@ -92,7 +92,7 @@
       "end_step": 100,
       "add_noise_to_samples": true,
       "model": [
-        "556",
+        "557",
         0
       ],
       "image_embeds": [
@@ -118,12 +118,20 @@
   },
 "279": {
     "inputs": {
+      "lora": "high_noise_model.safetensors",
+      "strength": 1.0,
+      "merge_loras": false
+    },
+    "class_type": "WanVideoLoraSelect"
+},
+"280": {
+    "inputs": {
       "lora": "cyberpunk_style.safetensors",
       "strength": 1.0,
       "merge_loras": false
     },
     "class_type": "WanVideoLoraSelect"
-  },
+},
   "498": {
     "inputs": {
       "context_schedule": "static_standard",
@@ -144,7 +152,7 @@
       "noise_aug_strength": 0,
       "start_latent_strength": 1,
       "end_latent_strength": 1,
-      "force_offload": true,
+      "force_offload": false,
       "fun_or_fl2v_model": false,
       "tiled_vae": false,
       "vae": [
@@ -171,19 +179,20 @@
     },
     "class_type": "WanVideoSetBlockSwap"
   },
-  "556": {
+"556": {
     "inputs": {
-      "model": [
-        "555",
-        0
-      ],
-      "lora": [
-        "279",
-        0
-      ]
+      "model": ["555", 0],
+      "lora": ["279", 0]
     },
     "class_type": "WanVideoSetLoRAs"
-  },
+},
+"557": {
+    "inputs": {
+      "model": ["556", 0],
+      "lora": ["280", 0]
+    },
+    "class_type": "WanVideoSetLoRAs"
+},
   "612": {
     "inputs": {
       "enable_vae_tiling": true,
