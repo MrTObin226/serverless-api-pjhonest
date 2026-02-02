@@ -1,24 +1,27 @@
 #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status.
+# Останавливаем скрипт при любой ошибке
 set -e
 
-# Start ComfyUI in the background
-echo "Starting ComfyUI in the background..."
-python /ComfyUI/main.py --listen &
+# Переходим в папку ComfyUI (важно для путей)
+cd /ComfyUI
 
-# Wait for ComfyUI to be ready
+# 1. Запуск ComfyUI в фоне с указанием конфига моделей
+echo "Starting ComfyUI..."
+python main.py --listen --extra-model-paths-config extra_model_paths.yaml &
+
+# 2. Ожидание готовности (твой цикл — отличный)
 echo "Waiting for ComfyUI to be ready..."
-max_wait=120  # 최대 2분 대기
+max_wait=120
 wait_count=0
 while [ $wait_count -lt $max_wait ]; do
-    if curl -s http://127.0.0.1:8188/ > /dev/null 2>&1; then
+    if curl -s http://127.0.0.1:8188/history > /dev/null 2>&1; then
         echo "ComfyUI is ready!"
         break
     fi
     echo "Waiting for ComfyUI... ($wait_count/$max_wait)"
-    sleep 2
-    wait_count=$((wait_count + 2))
+    sleep 5
+    wait_count=$((wait_count + 5))
 done
 
 if [ $wait_count -ge $max_wait ]; then
@@ -26,7 +29,7 @@ if [ $wait_count -ge $max_wait ]; then
     exit 1
 fi
 
-# Start the handler in the foreground
-# 이 스크립트가 컨테이너의 메인 프로세스가 됩니다.
+# 3. Запуск обработчика
 echo "Starting the handler..."
+# Используем exec, чтобы handler стал основным процессом (PID 1)
 exec python handler.py
