@@ -1,4 +1,5 @@
-FROM wlsdml1114/engui_genai-base_blackwell:1.1
+# Вместо Blackwell-образа берем официальный стабильный PyTorch от RunPod
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 # 1. Системные зависимости
 RUN apt-get update && apt-get install -y \
