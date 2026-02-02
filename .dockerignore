@@ -1,0 +1,19 @@
+# Исключаем всё кроме критически важных файлов
+*
+!handler.py
+!new_Wan22_api.json
+!extra_model_paths.yaml
+!entrypoint.sh
+!Dockerfile
+!.dockerignore
+
+# Исключаем временные файлы
+__pycache__/
+*.pyc
+*.log
+*.tmp
+.git/
+node_modules/
+venv/
+.env
+*.safetensors  # Модели не копируются — они скачиваются в образе
