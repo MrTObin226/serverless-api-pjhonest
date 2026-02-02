@@ -1,21 +1,21 @@
-# 1. База для RTX 4090 (PyTorch 2.5 + CUDA 12.4)
+# 1. База
 FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
 
-# Системные зависимости
+# Устанавливаем системные зависимости ПЕРЕД использованием git
 RUN apt-get update && apt-get install -y \
     libgl1 libglib2.0-0 ffmpeg git wget curl libgomp1 ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Клонируем ComfyUI и ОТКАТЫВАЕМСЯ на стабильный коммит (январь 2025)
-# Это решает ошибку "'ModelPatcher' object is not iterable" и "load_model_gpu"
+# 2. Клонируем ComfyUI и переключаемся на стабильный коммит (Январь 2025)
+# Мы используем полный хэш, чтобы избежать ошибки 'pathspec'
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /ComfyUI && \
     cd /ComfyUI && \
-    git checkout 57164eb
+    git fetch --all && \
+    git checkout 57164eb86716075f756627038e9323f95e505888
 
 WORKDIR /ComfyUI
 
 # 3. Установка Python-пакетов
-# Добавил 'onnx' и явный 'imageio-ffmpeg'
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt && \
     pip install runpod websocket-client opencv-python-headless accelerate \
