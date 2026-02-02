@@ -10,6 +10,7 @@ RUN pip install -U "huggingface_hub[hf_transfer]" && \
     pip install runpod websocket-client && \
     export HF_HUB_ENABLE_HF_TRANSFER=1
 
+
 # 3. ComfyUI (БЕЗ ПРОБЕЛОВ после .git!)
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /ComfyUI
 WORKDIR /ComfyUI
@@ -27,7 +28,7 @@ RUN cd /ComfyUI/custom_nodes && \
     git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git
 
 # 7. Модели (БЕЗ ПРОБЕЛОВ перед -O! ПРАВИЛЬНЫЕ ПУТИ!)
-RUN mkdir -p /ComfyUI/models/diffusion_models /ComfyUI/models/loras /ComfyUI/models/clip_vision /ComfyUI/models/vae /ComfyUI/models/clip
+RUN mkdir -p /ComfyUI/models/diffusion_models /ComfyUI/models/loras /ComfyUI/models/clip_vision /ComfyUI/models/vae /ComfyUI/models/clip /ComfyUI/input /ComfyUI/output
 
 RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/I2V/Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors -O /ComfyUI/models/diffusion_models/Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors && \
     wget -q https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors -O /ComfyUI/models/clip_vision/clip_vision_h.safetensors && \
@@ -44,6 +45,6 @@ RUN curl -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 COPY extra_model_paths.yaml /ComfyUI/
 COPY handler.py new_Wan22_api.json /ComfyUI/
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh && chmod -R 777 /ComfyUI/output /ComfyUI/input /ComfyUI/models
 
 CMD ["/entrypoint.sh"]

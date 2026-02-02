@@ -5,93 +5,92 @@ import requests
 import time
 import base64
 import uuid
+import glob
+import shutil  # Добавлено для удаления папок
 
 COMFY_URL = "http://127.0.0.1:8188"
 WORKFLOW_FILE = "/ComfyUI/new_Wan22_api.json"
 INPUT_DIR = "/ComfyUI/input"
-OUTPUT_DIR = "/ComfyUI/output"
+OUTPUT_BASE = "/ComfyUI/output"
 
 
-def upload_to_catbox(file_path):
-    """Загрузка файла на Catbox.moe для обхода лимитов RunPod API"""
-    print(f"🚀 Загрузка {file_path} на Catbox...")
+def log(message):
+    print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
+
+
+def upload_to_transfer_sh(file_path):
+    log(f"🚀 Загрузка {file_path} на transfer.sh...")
     try:
         with open(file_path, 'rb') as f:
-            response = requests.post(
-                "https://catbox.moe/user/api.php",
-                data={"reqtype": "fileupload"},
-                files={"fileToUpload": f},
-                timeout=30
+            response = requests.put(
+                f"https://transfer.sh/{os.path.basename(file_path)}",
+                data=f, timeout=60
             )
         if response.status_code == 200:
-            url = response.text.strip()
-            print(f"✅ Файл доступен по ссылке: {url}")
-            return url
-        else:
-            print(f"❌ Ошибка Catbox: {response.status_code}")
-            return None
+            return response.text.strip()
     except Exception as e:
-        print(f"❌ Исключение при загрузке: {str(e)}")
-        return None
+        log(f"❌ Ошибка загрузки: {str(e)}")
+    return None
+
+
+def encode_file_to_base64(file_path):
+    with open(file_path, "rb") as f:
+        return base64.b64encode(f.read()).decode('utf-8')
 
 
 def wait_for_comfy():
-    print("⏳ Ожидание запуска ComfyUI...")
+    log("⏳ Ожидание запуска ComfyUI...")
     for _ in range(120):
         try:
-            res = requests.get(f"{COMFY_URL}/object_info")
-            if res.status_code == 200:
-                print("✅ ComfyUI запущен!")
+            if requests.get(f"{COMFY_URL}/object_info").status_code == 200:
+                log("✅ ComfyUI готов!")
                 return
         except:
             time.sleep(1)
-    raise Exception("ComfyUI не запустился вовремя")
-
-
-def save_base64_image(b64_string):
-    if "," in b64_string:
-        b64_string = b64_string.split(",")[1]
-    image_data = base64.b64decode(b64_string)
-    filename = f"input_{uuid.uuid4()}.png"
-    file_path = os.path.join(INPUT_DIR, filename)
-    os.makedirs(INPUT_DIR, exist_ok=True)
-    with open(file_path, "wb") as f:
-        f.write(image_data)
-    return filename
+    raise Exception("ComfyUI не запустился")
 
 
 def handler(job):
+    # Создаем уникальные ID и пути СРАЗУ
+    request_id = str(uuid.uuid4())
+    job_output_dir = os.path.join(OUTPUT_BASE, request_id)
+    input_filename = f"input_{request_id}.png"
+    input_path = os.path.join(INPUT_DIR, input_filename)
+
     try:
         job_input = job['input']
         b64_image = job_input.get("image_base64") or job_input.get("image")
-        if not b64_image:
-            return {"error": "Image is required"}
+        if not b64_image: return {"error": "Image is required"}
 
-        image_filename = save_base64_image(b64_image)
+        # 1. Подготовка папок и входного файла
+        os.makedirs(INPUT_DIR, exist_ok=True)
+        os.makedirs(job_output_dir, exist_ok=True)
 
+        if "," in b64_image: b64_image = b64_image.split(",")[1]
+        with open(input_path, "wb") as f:
+            f.write(base64.b64decode(b64_image))
+
+        # 2. Настройка Workflow
         with open(WORKFLOW_FILE, "r") as f:
             workflow = json.load(f)
 
-        # Настройка воркфлоу
-        if "244" in workflow: workflow["244"]["inputs"]["image"] = image_filename
+        if "244" in workflow: workflow["244"]["inputs"]["image"] = input_filename
         if "135" in workflow: workflow["135"]["inputs"]["positive_prompt"] = job_input.get("prompt", "cinematic motion")
 
         seed = job_input.get("seed", int(time.time() * 1000) % 1000000000)
-        if "220" in workflow:
-            workflow["220"]["inputs"]["seed"] = seed
-            workflow["220"]["inputs"]["steps"] = job_input.get("steps", 15)
+        if "220" in workflow: workflow["220"]["inputs"]["seed"] = seed
 
-        num_frames = job_input.get("frames", 81)
-        if "541" in workflow: workflow["541"]["inputs"]["num_frames"] = num_frames
-        if "498" in workflow: workflow["498"]["inputs"]["context_frames"] = num_frames
+        # КЛЮЧЕВОЙ МОМЕНТ: VHS Combine сохранит файл ВНУТРЬ нашей уникальной папки
+        if "131" in workflow:
+            workflow["131"]["inputs"]["filename_prefix"] = f"{request_id}/Wan"
 
-        # Отправка в Comfy
-        res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow, "client_id": str(uuid.uuid4())})
-        if res.status_code != 200: return {"error": f"ComfyUI Error: {res.text}"}
+        # 3. Отправка
+        res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow, "client_id": request_id})
         prompt_id = res.json().get('prompt_id')
+        log(f"📢 Задача {request_id} отправлена. Seed: {seed}")
 
         start_time = time.time()
-        timeout = job_input.get("timeout", 900)  # Увеличили до 15 минут
+        timeout = job_input.get("timeout", 900)
 
         while True:
             if time.time() - start_time > timeout:
@@ -101,29 +100,39 @@ def handler(job):
             if history_res.status_code == 200:
                 history = history_res.json()
                 if prompt_id in history:
-                    outputs = history[prompt_id].get('outputs', {})
-                    video_info = outputs.get("131", {}).get("videos", [{}])[0]
-                    video_filename = video_info.get("filename")
+                    log(f"✅ Готово. Ищем файл в {job_output_dir}...")
 
-                    if video_filename:
-                        video_path = os.path.join(OUTPUT_DIR, video_filename)
-                        if os.path.exists(video_path):
-                            # ГЛАВНОЕ ИЗМЕНЕНИЕ: Загружаем вместо кодирования в Base64
-                            video_url = upload_to_catbox(video_path)
+                    # Ищем ТОЛЬКО в нашей папке. Никаких get_latest_video!
+                    candidates = glob.glob(os.path.join(job_output_dir, "*.mp4"))
 
-                            if not video_url:
-                                return {"error": "Failed to upload video to cloud"}
+                    if not candidates:
+                        return {"error": "Video file not found in job directory"}
 
-                            # Чистим файлы
-                            os.remove(video_path)
-                            os.remove(os.path.join(INPUT_DIR, image_filename))
+                    video_path = candidates[0]
+                    log(f"🎬 Файл найден: {video_path}")
 
-                            return {"video_url": video_url, "seed": seed, "status": "success"}
+                    # 4. Загрузка/Кодирование
+                    video_url = upload_to_transfer_sh(video_path)
 
-            time.sleep(5)  # Ждем чуть дольше между проверками
+                    response_payload = {"seed": seed, "status": "success"}
+                    if video_url:
+                        response_payload["video_url"] = video_url
+                    else:
+                        log("⚠️ Используем Base64 fallback")
+                        response_payload["video_base64"] = encode_file_to_base64(video_path)
+
+                    return response_payload
+
+            time.sleep(3)
 
     except Exception as e:
+        log(f"❌ Критическая ошибка: {str(e)}")
         return {"error": str(e)}
+
+    finally:
+        # ГАРАНТИРОВАННАЯ ЧИСТКА: Удаляем входной файл и ВСЮ папку вывода
+        if os.path.exists(input_path): os.remove(input_path)
+        if os.path.exists(job_output_dir): shutil.rmtree(job_output_dir)
 
 
 wait_for_comfy()
