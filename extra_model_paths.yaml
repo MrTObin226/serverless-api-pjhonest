@@ -1,5 +1,5 @@
 comfyui:
-  base_path: /runpod-volume/ComfyUI/
+  base_path: /workspace/ComfyUI/
   checkpoints: models/checkpoints/
   clip: models/clip/
   vae: models/vae/
@@ -8,7 +8,6 @@ comfyui:
   controlnet: models/controlnet/
   diffusers: models/diffusers/
   unet: models/unet/
-  # Добавляем пути для вывода, чтобы RunPod видел результат
   output: output/
   input: input/
   temp: temp/
