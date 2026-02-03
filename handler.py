@@ -51,7 +51,7 @@ def handler(job):
         f.write(base64.b64decode(image_base64.split(",")[-1]))
 
     # 3. Загрузка Workflow
-    with open("workflow_api.json", "r") as f:
+    with open("new_Wan22_api.json", "r") as f:
         workflow = json.load(f)
 
     # 4. Модификация Workflow
