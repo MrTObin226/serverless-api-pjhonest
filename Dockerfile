@@ -10,21 +10,18 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. PyTorch 2.1 + CUDA 12.1 (оптимизирован под RTX 4090)
+# 2. Pip и зависимости RunPod
 RUN pip3 install --no-cache-dir --upgrade pip && \
-    pip3 install --no-cache-dir torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 \
-    --index-url https://download.pytorch.org/whl/cu121
+    pip3 install --no-cache-dir runpod requests Pillow websocket-client numpy
 
-# 3. Зависимости RunPod и handler
-RUN pip3 install --no-cache-dir \
-    runpod \
-    requests \
-    Pillow \
-    websocket-client
-
-# 4. ComfyUI
+# 3. ComfyUI и его зависимости (могут поставить старый torch — перезатрём ниже)
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /workspace/ComfyUI && \
     pip3 install --no-cache-dir -r /workspace/ComfyUI/requirements.txt
+
+# 4. PyTorch 2.4+ с CUDA 12.1 (обязательно после ComfyUI: torch.uint64 и поддержка)
+RUN pip3 install --no-cache-dir --force-reinstall \
+    torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 \
+    --index-url https://download.pytorch.org/whl/cu121
 
 # 5. Кастомные ноды для Wan2.2 и видео
 RUN cd /workspace/ComfyUI/custom_nodes && \
