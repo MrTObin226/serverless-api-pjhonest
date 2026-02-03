@@ -2,16 +2,15 @@
 set -e
 cd /ComfyUI
 
-# Запуск БЕЗ --lowvram, но с резервированием памяти для системных нужд
-echo "Starting ComfyUI (NORMAL_VRAM mode)..."
+# Запуск в режиме нормальной VRAM (оптимально для 4090)
+echo "Starting ComfyUI..."
 python main.py \
   --listen \
   --extra-model-paths-config extra_model_paths.yaml \
-  --reserve-vram 4096 \  # Резервируем 4 ГБ для системных операций
-  --disable-smart-memory \  # Отключаем "умное" управление памятью (ломает WanVideo)
-  &
+  --reserve-vram 4096 \
+  --disable-smart-memory &
 
-# Ожидание готовности (как у вас — отлично работает)
+# Ожидание готовности
 echo "Waiting for ComfyUI to be ready..."
 max_wait=120
 wait_count=0
@@ -25,8 +24,11 @@ while [ $wait_count -lt $max_wait ]; do
     wait_count=$((wait_count + 5))
 done
 
-[ $wait_count -ge $max_wait ] && { echo "❌ Timeout"; exit 1; }
+if [ $wait_count -ge $max_wait ]; then
+    echo "❌ Timeout: ComfyUI failed to start"
+    exit 1
+fi
 
-# Запуск обработчика
+# Запуск обработчика RunPod
 echo "🚀 Starting handler..."
 exec python handler.py
