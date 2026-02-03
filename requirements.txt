@@ -1,3 +1,6 @@
+sqlalchemy
+alembic
+pi-heif
 runpod
 requests
 aiohttp
