@@ -1,0 +1,17 @@
+runpod
+requests
+aiohttp
+Pillow
+websocket-client
+# Зависимости для ComfyUI (базовые)
+torch
+torchvision
+torchaudio
+transformers
+diffusers
+accelerate
+safetensors
+opencv-python
+scipy
+filelock
+numpy

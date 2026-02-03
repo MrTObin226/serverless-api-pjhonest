@@ -1,11 +1,11 @@
 {
   "122": {
     "inputs": {
-      "model": "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "model": "wan2.2-rapid-mega-aio-v10.safetensors",
       "base_precision": "bf16",
       "quantization": "fp8_e4m3fn",
       "load_device": "offload_device",
-      "attention_mode": "sageattention",
+      "attention_mode": "default",
       "rms_norm_function": "default"
     },
     "class_type": "WanVideoModelLoader"

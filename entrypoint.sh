@@ -1,34 +1,15 @@
 #!/bin/bash
-set -e
-cd /ComfyUI
 
-# Запуск в режиме нормальной VRAM (оптимально для 4090)
-echo "Starting ComfyUI..."
-python main.py \
-  --listen \
-  --extra-model-paths-config extra_model_paths.yaml \
-  --preview-method auto \
-  --normalvram
+# 1. Создаем необходимые папки, если их еще нет на диске
+mkdir -p /runpod-volume/ComfyUI/input
+mkdir -p /runpod-volume/ComfyUI/output
 
-# Ожидание готовности
-echo "Waiting for ComfyUI to be ready..."
-max_wait=120
-wait_count=0
-while [ $wait_count -lt $max_wait ]; do
-    if curl -s http://127.0.0.1:8188/history > /dev/null 2>&1; then
-        echo "✅ ComfyUI is ready!"
-        break
-    fi
-    echo "⏳ Waiting... ($wait_count/$max_wait)"
-    sleep 5
-    wait_count=$((wait_count + 5))
-done
-
-if [ $wait_count -ge $max_wait ]; then
-    echo "❌ Timeout: ComfyUI failed to start"
-    exit 1
-fi
-
-# Запуск обработчика RunPod
-echo "🚀 Starting handler..."
-exec python handler.py
+# 2. Запуск ComfyUI в фоне
+# Добавляем --lowvram для экономии памяти видеокарты 4090
+# Указываем правильный путь к yaml (в корне проекта /workspace)
+echo "🚀 Starting ComfyUI backend with Low VRAM mode..."
+python3 /runpod-volume/ComfyUI/main.py --listen 0.0.0.0 --port 8188 --lowvram --extra-model-paths-config /workspace/extra_model_paths.yaml &
+# 3. Запуск RunPod Handler
+# Handler сам дождется готовности ComfyUI через функцию wait_for_comfyui
+echo "🚀 Starting RunPod Handler..."
+python3 -u /workspace/handler.py
