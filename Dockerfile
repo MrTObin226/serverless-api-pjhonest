@@ -1,46 +1,47 @@
-FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
-ENV DEBIAN_FRONTEND=noninteractive
+# Используем базовый образ PyTorch с CUDA 12.1
+FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
 
-# 1. Системные зависимости
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /
+
+# Установка системных пакетов
 RUN apt-get update && apt-get install -y \
-    libgl1 libglib2.0-0 ffmpeg git wget curl unzip libgomp1 ninja-build \
+    git \
+    wget \
+    ffmpeg \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Скачиваем СВЕЖИЙ master ComfyUI (чтобы не было ошибки Outdated)
-RUN curl -L https://github.com/comfyanonymous/ComfyUI/archive/refs/heads/master.zip -o /comfy.zip && \
-    unzip /comfy.zip && \
-    mv ComfyUI-master /ComfyUI && \
-    rm /comfy.zip
+# Клонируем ComfyUI
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git
 
-WORKDIR /ComfyUI
+# Устанавливаем зависимости ComfyUI + RunPod
+RUN pip install --no-cache-dir -r ComfyUI/requirements.txt
+RUN pip install --no-cache-dir runpod requests
 
-# 3. Python-зависимости (добавлен пакет 'av')
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir runpod websocket-client opencv-python-headless accelerate \
-    transformers>=4.48.0 diffusers>=0.31.0 torchao sageattention \
-    onnx onnxruntime-gpu imageio imageio-ffmpeg av \
-    flash-attn --no-build-isolation
+# --- Установка Custom Nodes ---
+WORKDIR /ComfyUI/custom_nodes
 
-# 4. Клонируем ноды
-RUN cd custom_nodes && \
-    git clone --depth 1 https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
-    git clone --depth 1 https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
-    git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git
+# 1. WanVideo Wrapper (Kijai) - Самая оптимизированная нода для Wan
+RUN git clone https://github.com/kijai/ComfyUI-WanVideo-Wrapper.git
+RUN pip install --no-cache-dir -r ComfyUI-WanVideo-Wrapper/requirements.txt
 
-# 5. ЖЕСТКИЙ ФИКС ИМПОРТОВ (исправляет обе вариации имен функций)
-RUN sed -i 's/apply_rope1/apply_rope/g' /ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper/wanvideo/modules/model.py && \
-    sed -i 's/apply_rope_comfy1/apply_rope_comfy/g' /ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper/wanvideo/modules/model.py
+# 2. Video Helper Suite (Для сборки видео)
+RUN git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git
+RUN pip install --no-cache-dir -r ComfyUI-VideoHelperSuite/requirements.txt
 
-# Установка зависимостей нод
-RUN pip install --no-cache-dir -r custom_nodes/ComfyUI-WanVideoWrapper/requirements.txt || true
+WORKDIR /
 
-# 6. Файлы проекта
-COPY extra_model_paths.yaml /ComfyUI/extra_model_paths.yaml
-COPY handler.py /ComfyUI/handler.py
-COPY new_Wan22_api.json /ComfyUI/new_Wan22_api.json
-COPY entrypoint.sh /entrypoint.sh
+# Копируем файлы проекта
+COPY handler.py .
+COPY workflow_api.json .
+COPY entrypoint.sh .
 
-RUN chmod +x /entrypoint.sh && mkdir -p /ComfyUI/input /ComfyUI/output
-ENV PYTHONUNBUFFERED=1
-ENTRYPOINT ["/entrypoint.sh"]
+# Права на запуск
+RUN chmod +x entrypoint.sh
+
+# Запуск
+CMD ["./entrypoint.sh"]

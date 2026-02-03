@@ -1,34 +1,42 @@
 #!/bin/bash
-set -e
-cd /ComfyUI
 
-# Запуск в режиме нормальной VRAM (оптимально для 4090)
-echo "Starting ComfyUI..."
-python main.py \
-  --listen \
-  --extra-model-paths-config extra_model_paths.yaml \
-  --reserve-vram 4096 \
-  --disable-smart-memory &
+echo "🚀 Starting RunPod Worker..."
 
-# Ожидание готовности
-echo "Waiting for ComfyUI to be ready..."
-max_wait=120
-wait_count=0
-while [ $wait_count -lt $max_wait ]; do
-    if curl -s http://127.0.0.1:8188/history > /dev/null 2>&1; then
-        echo "✅ ComfyUI is ready!"
-        break
+# Пути к папкам ComfyUI
+COMFY_MODELS="/ComfyUI/models"
+VOLUME_MODELS="/runpod-volume/models"
+
+# Функция для создания симлинков
+link_models() {
+    src=$1
+    dest=$2
+    mkdir -p "$dest"
+    if [ -d "$src" ]; then
+        echo "🔗 Linking $src -> $dest"
+        ln -s "$src"/* "$dest"/ 2>/dev/null
+    else
+        echo "⚠️ Warning: Source directory $src not found!"
     fi
-    echo "⏳ Waiting... ($wait_count/$max_wait)"
-    sleep 5
-    wait_count=$((wait_count + 5))
+}
+
+# 1. Линкуем модели с сетевого диска (твоя структура)
+link_models "$VOLUME_MODELS/diffusion_models" "$COMFY_MODELS/diffusion_models"
+link_models "$VOLUME_MODELS/clip_vision"      "$COMFY_MODELS/clip_vision"
+link_models "$VOLUME_MODELS/clip"             "$COMFY_MODELS/text_encoders"
+link_models "$VOLUME_MODELS/vae"              "$COMFY_MODELS/vae"
+link_models "$VOLUME_MODELS/loras"            "$COMFY_MODELS/loras"
+
+echo "✅ Models linked!"
+
+# 2. Запускаем ComfyUI в фоне
+echo "⏳ Starting ComfyUI..."
+python /ComfyUI/main.py --listen 127.0.0.1 --port 8188 --disable-auto-launch --gpu-only &
+
+# Ждем запуска
+while ! curl -s http://127.0.0.1:8188/ > /dev/null; do
+    sleep 2
 done
+echo "✅ ComfyUI is ready!"
 
-if [ $wait_count -ge $max_wait ]; then
-    echo "❌ Timeout: ComfyUI failed to start"
-    exit 1
-fi
-
-# Запуск обработчика RunPod
-echo "🚀 Starting handler..."
-exec python handler.py
+# 3. Запускаем обработчик запросов
+python -u handler.py
