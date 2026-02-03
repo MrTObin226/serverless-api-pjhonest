@@ -1,3 +1,7 @@
+"""
+RunPod Serverless handler: фото -> 8 сек видео (Wan2.2).
+Оптимизировано под RTX 4090 24GB: разрешение и шаги подобраны против OOM.
+"""
 import runpod
 import requests
 import time
@@ -7,122 +11,158 @@ import json
 import torch
 import gc
 
+# Разрешение под 24GB VRAM: плавное 8 сек без OOM (64 кадра @ 8 fps)
+WIDTH = 672
+HEIGHT = 384
+FRAMES = 64
+FPS = 8
+STEPS_DEFAULT = 6
+WORKFLOW_PATH = "/workspace/new_Wan22_api.json"
+COMFY_URL = "http://127.0.0.1:8188"
+TIMEOUT_GENERATION = 720  # 12 минут макс на одну задачу
+POLL_INTERVAL = 5
+
 
 def handler(event):
-    job_id = event["id"]
+    job_id = event.get("id", "unknown")
     input_data = event.get("input", {})
 
     try:
-        # Бот отправляет BASE64, а не URL!
         image_base64 = input_data.get("image_base64")
         prompt = input_data.get("prompt", "a person smiling naturally")
-        steps = int(input_data.get("steps", 6))
+        steps = int(input_data.get("steps", STEPS_DEFAULT))
         seed = input_data.get("seed", int(time.time()))
 
         if not image_base64:
             return {"error": "Требуется параметр image_base64"}
 
-        # Сохраняем изображение в /workspace (не /runpod-volume!)
-        input_path = f"/workspace/ComfyUI/input/input_{job_id}.jpg"
+        # Уникальные пути под конкурентные запросы
+        input_name = f"input_{job_id}.jpg"
+        input_path = f"/workspace/ComfyUI/input/{input_name}"
+
         try:
-            if ',' in image_base64:
-                image_base64 = image_base64.split(',')[1]
-            img_data = base64.b64decode(image_base64)
+            raw = image_base64
+            if "," in raw:
+                raw = raw.split(",", 1)[1]
+            img_data = base64.b64decode(raw)
             os.makedirs("/workspace/ComfyUI/input", exist_ok=True)
             with open(input_path, "wb") as f:
                 f.write(img_data)
         except Exception as e:
             return {"error": f"Ошибка декодирования изображения: {str(e)}"}
 
-        # Читаем ПРАВИЛЬНЫЙ файл workflow
-        with open("/workspace/new_Wan22_api.json", "r") as f:
+        if not os.path.exists(WORKFLOW_PATH):
+            return {"error": f"Workflow не найден: {WORKFLOW_PATH}"}
+
+        with open(WORKFLOW_PATH, "r", encoding="utf-8") as f:
             workflow = json.load(f)
 
         output_prefix = f"wan2_{job_id}"
 
-        # Настраиваем workflow
+        # Имена моделей на volume: checkpoints + VAE из одного файла, LoRA всегда cyberpunk_style
+        MODEL_FILE = "wan2.2-rapid-mega-aio-v10.safetensors"
+        LORA_FILE = "cyberpunk_style.safetensors"
+
         for node in workflow.values():
             if node.get("class_type") == "LoadImage":
-                node["inputs"]["image"] = f"input_{job_id}.jpg"
-
-            if node.get("class_type") in ["CLIPTextEncode", "WanVideoTextEncode"]:
+                node["inputs"]["image"] = input_name
+            elif node.get("class_type") in ["CLIPTextEncode", "WanVideoTextEncode"]:
                 node["inputs"]["text"] = prompt
-
-            if node.get("class_type") == "WanVideoModelLoader":
-                node["inputs"]["model"] = "wan2.2-rapid-mega-aio-v10.safetensors"
-                node["inputs"]["vae"] = "wan2.2-rapid-mega-aio-v10.safetensors"
-
-            if node.get("class_type") == "WanVideoSampler":
+            elif node.get("class_type") == "WanVideoModelLoader":
+                node["inputs"]["model"] = MODEL_FILE
+                node["inputs"]["vae"] = MODEL_FILE
+            elif node.get("class_type") == "WanVideoLoraSelectMulti":
+                node["inputs"]["lora_0"] = LORA_FILE
+                node["inputs"]["strength_0"] = 1.0
+            elif node.get("class_type") == "WanVideoSampler":
                 node["inputs"]["steps"] = steps
                 node["inputs"]["seed"] = seed
-                node["inputs"]["frames"] = 64  # 8 секунд @ 8fps
-
-            if node.get("class_type") in ["VHS_VideoCombine", "SaveVideo"]:
+                node["inputs"]["frames"] = FRAMES
+                node["inputs"]["fps"] = FPS
+                node["inputs"]["width"] = WIDTH
+                node["inputs"]["height"] = HEIGHT
+            elif node.get("class_type") in ["VHS_VideoCombine", "SaveVideo"]:
                 node["inputs"]["filename_prefix"] = output_prefix
+                if "frame_rate" in node["inputs"]:
+                    node["inputs"]["frame_rate"] = FPS
 
-        # Отправка в ComfyUI
         try:
             resp = requests.post(
-                "http://127.0.0.1:8188/prompt",
+                f"{COMFY_URL}/prompt",
                 json={"prompt": workflow},
-                timeout=30
+                timeout=30,
             )
             resp.raise_for_status()
             prompt_id = resp.json()["prompt_id"]
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
+            _cleanup(input_path, None)
             return {"error": f"Ошибка отправки в ComfyUI: {str(e)}"}
 
-        # Ожидание завершения (макс 10 минут)
-        print(f"🎬 Job {job_id}: генерация 64 кадров...")
         start_time = time.time()
-        while time.time() - start_time < 600:
+        video_path = None
+
+        while time.time() - start_time < TIMEOUT_GENERATION:
             try:
-                history = requests.get("http://127.0.0.1:8188/history", timeout=10).json()
-                if prompt_id in history:
-                    outputs = history[prompt_id].get("outputs", {})
-                    for node_output in outputs.values():
-                        if "videos" in node_output:
-                            video_info = node_output["videos"][0]
-                            video_path = f"/workspace/ComfyUI/output/{video_info['filename']}"
+                history = requests.get(f"{COMFY_URL}/history", timeout=10).json()
+                if prompt_id not in history:
+                    time.sleep(POLL_INTERVAL)
+                    continue
 
-                            if not os.path.exists(video_path):
-                                return {"error": f"Видео не найдено: {video_path}"}
+                outputs = history[prompt_id].get("outputs", {})
+                for node_output in outputs.values():
+                    if "videos" not in node_output:
+                        continue
+                    video_info = node_output["videos"][0]
+                    filename = video_info.get("filename") or video_info.get("subfolder", "")
+                    if isinstance(filename, list):
+                        filename = filename[0] if filename else ""
+                    subfolder = video_info.get("subfolder", "")
+                    if subfolder:
+                        video_path = f"/workspace/ComfyUI/output/{subfolder}/{filename}"
+                    else:
+                        video_path = f"/workspace/ComfyUI/output/{filename}"
 
-                            # Чтение в base64
-                            with open(video_path, "rb") as f:
-                                video_bytes = f.read()
+                    if not os.path.exists(video_path):
+                        video_path = f"/workspace/ComfyUI/output/{filename}"
+                    if not os.path.exists(video_path):
+                        _cleanup(input_path, None)
+                        return {"error": f"Видео не найдено: {filename}"}
 
-                            # Очистка файлов
-                            if os.path.exists(input_path):
-                                os.remove(input_path)
-                            if os.path.exists(video_path):
-                                os.remove(video_path)
+                    with open(video_path, "rb") as f:
+                        video_bytes = f.read()
 
-                            # 🔥 КРИТИЧНО: очистка памяти между запросами
-                            torch.cuda.empty_cache()
-                            gc.collect()
+                    _cleanup(input_path, video_path)
+                    torch.cuda.empty_cache()
+                    gc.collect()
 
-                            return {
-                                "status": "success",
-                                "video_base64": base64.b64encode(video_bytes).decode('utf-8'),
-                                "seed": seed,
-                                "frames": 64,
-                                "fps": 8,
-                                "duration_sec": 8
-                            }
-                    return {"error": "Видео не сгенерировано (проверьте ноды в workflow)"}
+                    return {
+                        "video_base64": base64.b64encode(video_bytes).decode("utf-8"),
+                        "seed": seed,
+                        "frames": FRAMES,
+                        "fps": FPS,
+                        "duration_sec": FRAMES // FPS,
+                    }
+                return {"error": "В выводе workflow нет видео"}
             except Exception as e:
-                print(f"⚠️ Ошибка при опросе истории: {e}")
+                print(f"⚠️ Job {job_id} опрос истории: {e}")
+            time.sleep(POLL_INTERVAL)
 
-            time.sleep(5)
-
-        return {"error": "Таймаут генерации (более 10 минут)"}
+        _cleanup(input_path, video_path)
+        return {"error": f"Таймаут генерации ({TIMEOUT_GENERATION // 60} мин)"}
 
     except Exception as e:
-        # Гарантированная очистка памяти при ЛЮБОЙ ошибке
         torch.cuda.empty_cache()
         gc.collect()
         return {"error": f"Критическая ошибка: {str(e)}"}
+
+
+def _cleanup(input_path, video_path):
+    for p in (input_path, video_path):
+        if p and os.path.exists(p):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
 
 
 runpod.serverless.start({"handler": handler})

@@ -1,11 +1,13 @@
+# Образ для RunPod Serverless: фото -> видео (Wan2.2), RTX 4090
 FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
 
 WORKDIR /workspace
 
 # 1. Системные зависимости
 RUN apt-get update && apt-get install -y \
-    python3-pip git wget ffmpeg libgl1-mesa-glx libglib2.0-0 \
-    build-essential libssl-dev libffi-dev python3-dev \
+    python3-pip python3-dev git wget ffmpeg \
+    libgl1-mesa-glx libglib2.0-0 build-essential libssl-dev libffi-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. PyTorch 2.1 + CUDA 12.1 (оптимизирован под RTX 4090)
@@ -13,37 +15,38 @@ RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 \
     --index-url https://download.pytorch.org/whl/cu121
 
-# 3. Базовые зависимости для ComfyUI и обработки видео
+# 3. Зависимости RunPod и handler
 RUN pip3 install --no-cache-dir \
-    runpod==1.5.2 \
-    requests aiohttp Pillow websocket-client \
-    einops tqdm pyyaml safetensors opencv-python-headless \
-    xformers==0.0.23.post1
+    runpod \
+    requests \
+    Pillow \
+    websocket-client
 
-# 4. Чистый ComfyUI (без проблемных нодов)
-RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
-    cd ComfyUI && \
-    pip3 install --no-cache-dir -r requirements.txt
+# 4. ComfyUI
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git /workspace/ComfyUI && \
+    pip3 install --no-cache-dir -r /workspace/ComfyUI/requirements.txt
 
-# 5. Только необходимые кастомные ноды для Wan2.2
-WORKDIR /workspace/ComfyUI/custom_nodes
-
-RUN git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
-    pip3 install --no-cache-dir -r ComfyUI-WanVideoWrapper/requirements.txt
-
-RUN git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
+# 5. Кастомные ноды для Wan2.2 и видео
+RUN cd /workspace/ComfyUI/custom_nodes && \
+    git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
+    pip3 install --no-cache-dir -r ComfyUI-WanVideoWrapper/requirements.txt && \
+    git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
     pip3 install --no-cache-dir -r ComfyUI-VideoHelperSuite/requirements.txt
 
-# GGUF-поддержка (опционально)
-RUN git clone https://github.com/city96/ComfyUI-GGUF.git && \
-    pip3 install --no-cache-dir -r ComfyUI-GGUF/requirements.txt
+# 6. Копируем только нужные файлы (handler, workflow, entrypoint, config)
+COPY handler.py /workspace/handler.py
+COPY new_Wan22_api.json /workspace/new_Wan22_api.json
+COPY entrypoint.sh /workspace/entrypoint.sh
+COPY extra_model_paths.yaml /workspace/ComfyUI/extra_model_paths.yaml
 
-# 6. Копируем ваши файлы
-WORKDIR /workspace
-COPY . .
+# 7. Папки и права
+RUN mkdir -p /workspace/ComfyUI/input /workspace/ComfyUI/output \
+    /workspace/ComfyUI/models/checkpoints \
+    /workspace/ComfyUI/models/clip \
+    /workspace/ComfyUI/models/vae \
+    /workspace/ComfyUI/models/loras \
+    && chmod +x /workspace/entrypoint.sh
 
-# 7. Создаём папки и права
-RUN mkdir -p /workspace/ComfyUI/input /workspace/ComfyUI/output && \
-    chmod +x /workspace/entrypoint.sh
-
+# RunPod монтирует том с моделями в /runpod-volume
+# Симлинки создаются в entrypoint при старте
 ENTRYPOINT ["/workspace/entrypoint.sh"]

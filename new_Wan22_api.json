@@ -21,6 +21,30 @@
     }
   },
   "4": {
+    "class_type": "WanVideoLoraSelectMulti",
+    "inputs": {
+      "lora_0": "cyberpunk_style.safetensors",
+      "strength_0": 1,
+      "lora_1": "none",
+      "strength_1": 1,
+      "lora_2": "none",
+      "strength_2": 1,
+      "lora_3": "none",
+      "strength_3": 1,
+      "lora_4": "none",
+      "strength_4": 1,
+      "low_mem_load": false,
+      "merge_loras": false
+    }
+  },
+  "5": {
+    "class_type": "WanVideoSetLoRAs",
+    "inputs": {
+      "model": ["2", 0],
+      "lora": ["4", 0]
+    }
+  },
+  "6": {
     "class_type": "WanVideoSampler",
     "inputs": {
       "steps": 6,
@@ -28,15 +52,15 @@
       "seed": 42,
       "frames": 64,
       "fps": 8,
-      "width": 848,
-      "height": 480,
-      "model": ["2", 0],
+      "width": 672,
+      "height": 384,
+      "model": ["5", 0],
       "positive": ["3", 0],
       "negative": ["3", 0],
       "images": ["1", 0]
     }
   },
-  "5": {
+  "7": {
     "class_type": "VHS_VideoCombine",
     "inputs": {
       "frame_rate": 8,
@@ -46,7 +70,7 @@
       "pix_fmt": "yuv420p",
       "crf": 19,
       "save_image": true,
-      "images": ["4", 0]
+      "images": ["6", 0]
     }
   }
 }
