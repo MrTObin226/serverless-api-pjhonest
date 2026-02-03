@@ -8,24 +8,24 @@ RUN apt-get update && apt-get install -y \
     build-essential libssl-dev libffi-dev python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. PyTorch 2.1 + CUDA 12.1
+# 2. PyTorch 2.1 + CUDA 12.1 (оптимизирован под RTX 4090)
 RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 \
     --index-url https://download.pytorch.org/whl/cu121
 
-# 3. Базовые зависимости
+# 3. Базовые зависимости для ComfyUI и обработки видео
 RUN pip3 install --no-cache-dir \
     runpod==1.5.2 \
     requests aiohttp Pillow websocket-client \
     einops tqdm pyyaml safetensors opencv-python-headless \
     xformers==0.0.23.post1
 
-# 4. Чистый ComfyUI
+# 4. Чистый ComfyUI (без проблемных нодов)
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
     cd ComfyUI && \
     pip3 install --no-cache-dir -r requirements.txt
 
-# 5. Только нужные кастомные ноды
+# 5. Только необходимые кастомные ноды для Wan2.2
 WORKDIR /workspace/ComfyUI/custom_nodes
 
 RUN git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
@@ -34,6 +34,7 @@ RUN git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
 RUN git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
     pip3 install --no-cache-dir -r ComfyUI-VideoHelperSuite/requirements.txt
 
+# GGUF-поддержка (опционально)
 RUN git clone https://github.com/city96/ComfyUI-GGUF.git && \
     pip3 install --no-cache-dir -r ComfyUI-GGUF/requirements.txt
 
@@ -44,8 +45,5 @@ COPY . .
 # 7. Создаём папки и права
 RUN mkdir -p /workspace/ComfyUI/input /workspace/ComfyUI/output && \
     chmod +x /workspace/entrypoint.sh
-
-# 8. Копируем конфиг
-COPY config.yaml /workspace/ComfyUI/config.yaml
 
 ENTRYPOINT ["/workspace/entrypoint.sh"]

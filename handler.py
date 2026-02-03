@@ -13,7 +13,7 @@ def handler(event):
     input_data = event.get("input", {})
 
     try:
-        # ВАЖНО: бот отправляет BASE64, а не URL!
+        # Бот отправляет BASE64, а не URL!
         image_base64 = input_data.get("image_base64")
         prompt = input_data.get("prompt", "a person smiling naturally")
         steps = int(input_data.get("steps", 6))
@@ -22,7 +22,7 @@ def handler(event):
         if not image_base64:
             return {"error": "Требуется параметр image_base64"}
 
-        # Сохраняем изображение В /workspace (не /runpod-volume!)
+        # Сохраняем изображение в /workspace (не /runpod-volume!)
         input_path = f"/workspace/ComfyUI/input/input_{job_id}.jpg"
         try:
             if ',' in image_base64:
@@ -35,12 +35,12 @@ def handler(event):
             return {"error": f"Ошибка декодирования изображения: {str(e)}"}
 
         # Читаем ПРАВИЛЬНЫЙ файл workflow
-        with open("/workspace/workflow_8sec.json", "r") as f:
+        with open("/workspace/new_Wan22_api.json", "r") as f:
             workflow = json.load(f)
 
         output_prefix = f"wan2_{job_id}"
 
-        # Настраиваем workflow под запрос
+        # Настраиваем workflow
         for node in workflow.values():
             if node.get("class_type") == "LoadImage":
                 node["inputs"]["image"] = f"input_{job_id}.jpg"
@@ -92,7 +92,7 @@ def handler(event):
                             with open(video_path, "rb") as f:
                                 video_bytes = f.read()
 
-                            # ОЧИСТКА ФАЙЛОВ
+                            # Очистка файлов
                             if os.path.exists(input_path):
                                 os.remove(input_path)
                             if os.path.exists(video_path):

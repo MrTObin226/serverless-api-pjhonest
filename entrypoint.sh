@@ -1,10 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "🔧 Исправление cuda_malloc.py (если существует)..."
+# Исправляем ошибку comfy_aimdo в cuda_malloc.py
 if [ -f "/workspace/ComfyUI/cuda_malloc.py" ]; then
-    sed -i 's/^import comfy_aimdo/# import comfy_aimdo (disabled)/' /workspace/ComfyUI/cuda_malloc.py || true
-    sed -i 's/^from comfy_aimdo/# from comfy_aimdo (disabled)/' /workspace/ComfyUI/cuda_malloc.py || true
+    echo "🔧 Исправление cuda_malloc.py..."
+    sed -i 's/^import comfy_aimdo/# import comfy_aimdo (disabled)/' /workspace/ComfyUI/cuda_malloc.py 2>/dev/null || true
+    sed -i 's/^from comfy_aimdo/# from comfy_aimdo (disabled)/' /workspace/ComfyUI/cuda_malloc.py 2>/dev/null || true
     echo "✅ cuda_malloc.py исправлен"
 fi
 
@@ -17,7 +18,6 @@ mkdir -p /workspace/ComfyUI/models/checkpoints \
          /workspace/ComfyUI/input \
          /workspace/ComfyUI/output
 
-# Симлинки (без копирования!)
 ln -sf /runpod-volume/models/checkpoints/* /workspace/ComfyUI/models/checkpoints/ 2>/dev/null || true
 ln -sf /runpod-volume/models/clip/* /workspace/ComfyUI/models/clip/ 2>/dev/null || true
 ln -sf /runpod-volume/models/vae/* /workspace/ComfyUI/models/vae/ 2>/dev/null || true
@@ -28,7 +28,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export XFORMERS_FORCE_DISABLE_TRITON=1
 export CUDA_VISIBLE_DEVICES=0
 
-# Запуск ComfyUI БЕЗ --disable-all-custom-nodes (иначе не загрузятся ноды WanVideo!)
+# Запуск ComfyUI (БЕЗ --disable-all-custom-nodes!)
 echo "🚀 Запуск ComfyUI..."
 cd /workspace/ComfyUI
 python main.py --dont-print-server --port 8188 --listen 0.0.0.0 2>&1 | grep -v "comfy_aimdo" &
