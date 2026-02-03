@@ -24,7 +24,7 @@ mkdir -p /workspace/ComfyUI/input /workspace/ComfyUI/output
 # Запуск ComfyUI в фоне
 echo "🚀 Запуск ComfyUI..."
 cd /workspace/ComfyUI
-python main.py --dont-print-server --port 8188 --listen 0.0.0.0 &
+python3 main.py --dont-print-server --port 8188 --listen 0.0.0.0 &
 COMFY_PID=$!
 
 # Ожидание готовности API
@@ -44,4 +44,4 @@ done
 # Запуск RunPod serverless worker (handler.py вызывает runpod.serverless.start)
 cd /workspace
 echo "🔌 Запуск RunPod handler (cwd=/workspace)..."
-exec python /workspace/handler.py
+exec python3 /workspace/handler.py
