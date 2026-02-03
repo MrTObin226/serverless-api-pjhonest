@@ -20,11 +20,8 @@ WORKDIR /ComfyUI
 
 # 4. Установка зависимостей в правильном порядке (решает проблему совместимости)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    # Сначала фиксируем версию torch для совместимости с нодами
     pip install --no-cache-dir torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu124 && \
-    # Базовые зависимости ComfyUI
     pip install --no-cache-dir -r requirements.txt && \
-    # Дополнительные зависимости с ВЕРСИОННЫМИ ОГРАНИЧЕНИЯМИ для стабильности
     pip install --no-cache-dir \
         "runpod>=0.10.0" \
         "websocket-client>=1.8.0" \
@@ -53,7 +50,6 @@ RUN cd custom_nodes/ComfyUI-WanVideoWrapper && \
     git pull && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir -e . && \
-    # Принудительно обновляем зависимости для совместимости с новым API ComfyUI
     pip install --no-cache-dir "comfy-cli>=1.20.0"
 
 RUN cd custom_nodes/ComfyUI-VideoHelperSuite && \
