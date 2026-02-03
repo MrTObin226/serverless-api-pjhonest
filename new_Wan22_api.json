@@ -1,103 +1,234 @@
 {
-  "1": {
+  "122": {
     "inputs": {
-      "ckpt_name": "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
-      "clip_name": "umt5-xxl-enc-bf16.safetensors",
-      "vae_name": "Wan2_1_VAE_bf16.safetensors",
-      "filename_prefix": "WanVideo"
+      "model": "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "base_precision": "bf16",
+      "quantization": "fp8_e4m3fn",
+      "load_device": "offload_device",
+      "attention_mode": "sageattention",
+      "rms_norm_function": "default"
     },
-    "class_type": "WanVideoLoader",
-    "_meta": { "title": "WanVideo Loader" }
+    "class_type": "WanVideoModelLoader"
   },
-  "2": {
-    "inputs": { "clip_vision_name": "clip_vision_h.safetensors" },
-    "class_type": "WanVideoClipVisionLoader",
-    "_meta": { "title": "ClipVision Loader" }
-  },
-  "3": {
-    "inputs": { "image": "example.png", "upload": "image" },
-    "class_type": "LoadImage",
-    "_meta": { "title": "Load Image" }
-  },
-  "4": {
+  "129": {
     "inputs": {
-      "lora_name": "cyberpunk_style.safetensors",
-      "strength_model": 0.0,
-      "model": ["1", 0]
+      "model_name": "Wan2_1_VAE_bf16.safetensors",
+      "precision": "bf16"
     },
-    "class_type": "WanVideoLoraLoader",
-    "_meta": { "title": "LoRA Loader" }
+    "class_type": "WanVideoVAELoader"
   },
-  "5": {
+  "135": {
     "inputs": {
-      "width": 832,
-      "height": 480,
-      "frames": 121,
-      "scale_factor": 1.0,
-      "model": ["4", 0],
-      "vae": ["1", 2],
-      "image": ["3", 0],
-      "clip_vision": ["2", 0]
+      "positive_prompt": "running man, grab the gun",
+      "negative_prompt": "bright tones, overexposed, static, blurred details, worst quality, low quality, ugly",
+      "force_offload": false,
+      "use_disk_cache": false,
+      "device": "gpu",
+      "t5": [
+        "136",
+        0
+      ]
     },
-    "class_type": "WanVideoI2VContext",
-    "_meta": { "title": "Video Context" }
+    "class_type": "WanVideoTextEncode"
   },
-  "6": {
+  "136": {
     "inputs": {
-      "prompt": "high quality, cinematic movement",
-      "clip": ["1", 1]
+      "model_name": "umt5-xxl-enc-bf16.safetensors",
+      "precision": "bf16",
+      "load_device": "offload_device",
+      "quantization": "disabled"
     },
-    "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Positive Prompt" }
+    "class_type": "LoadWanVideoT5TextEncoder"
   },
-  "7": {
+"171": {
+  "inputs": {
+    "upscale_method": "nearest-exact",
+    "width": 480,
+    "height": 832,
+    "crop": "center",
+    "image": ["244", 0]
+  },
+  "class_type": "ImageScale"
+},
+  "173": {
     "inputs": {
-      "prompt": "low quality, text, watermark, distorted, ugly",
-      "clip": ["1", 1]
+      "clip_name": "clip_vision_h.safetensors"
     },
-    "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Negative Prompt" }
+    "class_type": "CLIPVisionLoader"
   },
-  "8": {
+  "193": {
     "inputs": {
-      "seed": 0,
-      "steps": 25,
-      "cfg": 6.0,
-      "sampler_name": "uni_pc",
-      "scheduler": "simple",
-      "denoise": 1.0,
-      "model": ["5", 0],
-      "positive": ["6", 0],
-      "negative": ["7", 0]
+      "strength_1": 1.0,
+      "strength_2": 1.0,
+      "crop": "center",
+      "combine_embeds": "average",
+      "force_offload": false,
+      "tiles": 0,
+      "ratio": 0.5,
+      "clip_vision": [
+        "173",
+        0
+      ],
+      "image_1": [
+        "171",
+        0
+      ]
     },
-    "class_type": "KSampler",
-    "_meta": { "title": "KSampler" }
+    "class_type": "WanVideoClipVisionEncode"
   },
-  "9": {
+  "220": {
     "inputs": {
-      "samples": ["8", 0],
-      "vae": ["1", 2],
+      "steps": 6,
+      "cfg": 1.0,
+      "shift": 9.0,
+      "seed": 42,
+      "force_offload": false,
+      "scheduler": "dpm++_sde",
+      "riflex_freq_index": 0,
+      "denoise_strength": 1,
+      "batched_cfg": false,
+      "rope_function": "comfy",
+      "start_step": 0,
+      "end_step": 100,
+      "add_noise_to_samples": true,
+      "model": [
+        "557",
+        0
+      ],
+      "image_embeds": [
+        "541",
+        0
+      ],
+      "text_embeds": [
+        "135",
+        0
+      ],
+      "context_options": [
+        "498",
+        0
+      ]
+    },
+    "class_type": "WanVideoSampler"
+  },
+  "244": {
+    "inputs": {
+      "image": "input_file.png"
+    },
+    "class_type": "LoadImage"
+  },
+"279": {
+    "inputs": {
+      "lora": "high_noise_model.safetensors",
+      "strength": 1.0,
+      "merge_loras": false
+    },
+    "class_type": "WanVideoLoraSelect"
+},
+"280": {
+    "inputs": {
+      "lora": "cyberpunk_style.safetensors",
+      "strength": 1.0,
+      "merge_loras": false
+    },
+    "class_type": "WanVideoLoraSelect"
+},
+  "498": {
+    "inputs": {
+      "context_schedule": "static_standard",
+      "context_frames": 49,
+      "context_stride": 4,
+      "context_overlap": 24,
+      "freenoise": true,
+      "verbose": false,
+      "fuse_method": "linear"
+    },
+    "class_type": "WanVideoContextOptions"
+  },
+  "541": {
+    "inputs": {
+      "width": 480,
+      "height": 832,
+      "num_frames": 49,
+      "noise_aug_strength": 0,
+      "start_latent_strength": 1,
+      "end_latent_strength": 1,
+      "force_offload": false,
+      "fun_or_fl2v_model": false,
+      "tiled_vae": false,
+      "vae": [
+        "129",
+        0
+      ],
+      "clip_embeds": [
+        "193",
+        0
+      ],
+      "start_image": [
+        "171",
+        0
+      ]
+    },
+    "class_type": "WanVideoImageToVideoEncode"
+  },
+  "555": {
+    "inputs": {
+      "model": [
+        "122",
+        0
+      ]
+    },
+    "class_type": "WanVideoSetBlockSwap"
+  },
+"556": {
+    "inputs": {
+      "model": ["555", 0],
+      "lora": ["279", 0]
+    },
+    "class_type": "WanVideoSetLoRAs"
+},
+"557": {
+    "inputs": {
+      "model": ["556", 0],
+      "lora": ["280", 0]
+    },
+    "class_type": "WanVideoSetLoRAs"
+},
+  "612": {
+    "inputs": {
       "enable_vae_tiling": true,
-      "tile_sample_min_size": 256,
-      "window_overlap": 4
+      "tile_x": 272,
+      "tile_y": 272,
+      "tile_stride_x": 144,
+      "tile_stride_y": 128,
+      "normalization": "default",
+      "vae": [
+        "129",
+        0
+      ],
+      "samples": [
+        "220",
+        0
+      ]
     },
-    "class_type": "VAEDecodeTiled",
-    "_meta": { "title": "VAE Decode Tiled (Save RAM)" }
+    "class_type": "WanVideoDecode"
   },
-  "10": {
+  "131": {
     "inputs": {
       "frame_rate": 16,
       "loop_count": 0,
-      "filename_prefix": "Result",
+      "filename_prefix": "WanResult",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
-      "crf": 19,
-      "save_metadata": true,
+      "crf": 23,
+      "save_metadata": false,
+      "trim_to_audio": false,
       "pingpong": false,
       "save_output": true,
-      "images": ["9", 0]
+      "images": [
+        "612",
+        0
+      ]
     },
-    "class_type": "VHS_VideoCombine",
-    "_meta": { "title": "Video Save" }
+    "class_type": "VHS_VideoCombine"
   }
 }

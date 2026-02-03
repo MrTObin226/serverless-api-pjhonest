@@ -1,119 +1,144 @@
 import runpod
-import json
-import base64
-import time
 import os
+import json
 import requests
-import random
+import time
+import base64
+import uuid
+import glob
+import shutil
 
-# Настройки ComfyUI
 COMFY_URL = "http://127.0.0.1:8188"
+WORKFLOW_FILE = "/ComfyUI/new_Wan22_api.json"
 INPUT_DIR = "/ComfyUI/input"
-OUTPUT_DIR = "/ComfyUI/output"
+OUTPUT_BASE = "/ComfyUI/output"
 
 
-def check_server():
+def log(message):
+    print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
+
+
+def upload_to_transfer_sh(file_path):
+    log(f"🚀 Загрузка {file_path} на transfer.sh...")
     try:
-        requests.get(COMFY_URL, timeout=1)
-        return True
-    except:
-        return False
+        with open(file_path, 'rb') as f:
+            response = requests.put(
+                f"https://transfer.sh/{os.path.basename(file_path)}",
+                data=f, timeout=60
+            )
+        if response.status_code == 200:
+            return response.text.strip()
+    except Exception as e:
+        log(f"❌ Ошибка загрузки: {str(e)}")
+    return None
 
 
-def clear_dirs():
-    """Очистка папок перед генерацией"""
-    for d in [INPUT_DIR, OUTPUT_DIR]:
-        if os.path.exists(d):
-            for f in os.listdir(d):
-                if f != ".gitkeep":
-                    try:
-                        os.remove(os.path.join(d, f))
-                    except:
-                        pass
+def encode_file_to_base64(file_path):
+    with open(file_path, "rb") as f:
+        return base64.b64encode(f.read()).decode('utf-8')
+
+
+def wait_for_comfy():
+    log("⏳ Ожидание запуска ComfyUI...")
+    for _ in range(120):
+        try:
+            if requests.get(f"{COMFY_URL}/object_info").status_code == 200:
+                log("✅ ComfyUI готов!")
+                return
+        except:
+            time.sleep(1)
+    raise Exception("ComfyUI не запустился")
 
 
 def handler(job):
-    job_input = job["input"]
+    request_id = str(uuid.uuid4())
+    job_output_dir = os.path.join(OUTPUT_BASE, request_id)
+    input_filename = f"input_{request_id}.png"
+    input_path = os.path.join(INPUT_DIR, input_filename)
 
-    # 1. Разбираем входные данные
-    image_base64 = job_input.get("image_base64")
-    prompt = job_input.get("prompt", "cinematic video")
-    use_cyberpunk = job_input.get("use_cyberpunk", False)  # Флаг от бота
-    seed = job_input.get("seed", random.randint(1, 999999999))
-
-    if not image_base64:
-        return {"error": "No image provided"}
-
-    # 2. Очистка и сохранение картинки
-    clear_dirs()
-    image_name = f"input_{job['id']}.png"
-    with open(os.path.join(INPUT_DIR, image_name), "wb") as f:
-        f.write(base64.b64decode(image_base64.split(",")[-1]))
-
-    # 3. Загрузка Workflow
-    with open("new_Wan22_api.json", "r") as f:
-        workflow = json.load(f)
-
-    # 4. Модификация Workflow
-    # Узел 3: Картинка
-    workflow["3"]["inputs"]["image"] = image_name
-
-    # Узел 6: Промпт (Позитивный)
-    # Если киберпанк, добавляем триггерные слова
-    full_prompt = prompt
-    if use_cyberpunk:
-        full_prompt = f"cyberpunk style, neon lights, high tech, {prompt}"
-
-    workflow["6"]["inputs"]["prompt"] = full_prompt
-
-    # Узел 4: LoRA (Cyberpunk)
-    # Если use_cyberpunk=True, ставим силу 1.0, иначе 0.0 (отключаем)
-    lora_strength = 1.0 if use_cyberpunk else 0.0
-    workflow["4"]["inputs"]["strength_model"] = lora_strength
-    # Важно: имя файла должно совпадать с тем, что ты скачал wget-ом
-    workflow["4"]["inputs"]["lora_name"] = "cyberpunk_style.safetensors"
-
-    # Узел 8: Сид и Шаги
-    workflow["8"]["inputs"]["seed"] = seed
-    # Для обычного Wan (не Lightning) нужно больше шагов, 20-30 оптимально.
-    # Если ты используешь Lightning лору (она у тебя скачана как high_noise_model), то шагов нужно 4-8.
-    # Но так как ты просил Cyberpunk Lora, она не Lightning.
-    # Поэтому ставим универсальные 25 шагов.
-    workflow["8"]["inputs"]["steps"] = 25
-
-    # 5. Отправка в ComfyUI
     try:
-        resp = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow}).json()
-        prompt_id = resp["prompt_id"]
+        job_input = job['input']
+        b64_image = job_input.get("image_base64") or job_input.get("image")
+        if not b64_image: return {"error": "Image is required"}
+
+        os.makedirs(INPUT_DIR, exist_ok=True)
+        os.makedirs(job_output_dir, exist_ok=True)
+
+        if "," in b64_image: b64_image = b64_image.split(",")[1]
+        with open(input_path, "wb") as f:
+            f.write(base64.b64decode(b64_image))
+
+        with open(WORKFLOW_FILE, "r") as f:
+            workflow = json.load(f)
+
+        # 1. Подставляем картинку
+        if "244" in workflow:
+            workflow["244"]["inputs"]["image"] = input_filename
+
+        # 2. Подставляем промпт (LoRA активируется триггер-словами в нем)
+        user_prompt = job_input.get("prompt", "cinematic motion")
+        if "135" in workflow:
+            workflow["135"]["inputs"]["positive_prompt"] = user_prompt
+
+        # 3. Seed
+        seed = job_input.get("seed", int(time.time() * 1000) % 1000000000)
+        if "220" in workflow:
+            workflow["220"]["inputs"]["seed"] = seed
+
+        # 4. Префикс сохранения
+        if "131" in workflow:
+            workflow["131"]["inputs"]["filename_prefix"] = f"{request_id}/Wan"
+
+        res = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow, "client_id": request_id})
+        if res.status_code != 200:
+            return {"error": f"ComfyUI Error: {res.text}"}
+
+        prompt_id = res.json().get('prompt_id')
+        log(f"📢 Задача {request_id} отправлена. Seed: {seed}")
+
+        start_time = time.time()
+        timeout = job_input.get("timeout", 1000)
+
+        while True:
+            if time.time() - start_time > timeout:
+                return {"error": "Generation timeout"}
+
+            history_res = requests.get(f"{COMFY_URL}/history/{prompt_id}")
+            if history_res.status_code == 200:
+                history = history_res.json()
+                if prompt_id in history:
+                    # Проверка на внутреннюю ошибку ComfyUI
+                    if 'outputs' not in history[prompt_id]:
+                        return {"error": "ComfyUI execution failed. Check logs."}
+
+                    log(f"✅ Готово. Ищем файл...")
+                    time.sleep(2)  # Даем время ФС сохранить файл
+                    candidates = glob.glob(os.path.join(job_output_dir, "*.mp4"))
+
+                    if not candidates:
+                        return {"error": "Video file not found"}
+
+                    video_path = candidates[0]
+                    video_url = upload_to_transfer_sh(video_path)
+
+                    response = {"seed": seed, "status": "success"}
+                    if video_url:
+                        response["video_url"] = video_url
+                    else:
+                        response["video_base64"] = encode_file_to_base64(video_path)
+
+                    return response
+
+            time.sleep(5)
+
     except Exception as e:
-        return {"error": f"ComfyUI Error: {e}"}
+        log(f"❌ Критическая ошибка: {str(e)}")
+        return {"error": str(e)}
 
-    # 6. Ожидание результата
-    start = time.time()
-    while time.time() - start < 600:  # 10 минут таймаут
-        try:
-            history = requests.get(f"{COMFY_URL}/history/{prompt_id}").json()
-            if prompt_id in history:
-                # Нашли результат
-                outputs = history[prompt_id]["outputs"]
-                # Узел 10 - VHS_VideoCombine
-                if "10" in outputs:
-                    filename = outputs["10"]["gifs"][0]["filename"]
-
-                    # Читаем видео и кодируем в base64
-                    with open(os.path.join(OUTPUT_DIR, filename), "rb") as f:
-                        video_b64 = base64.b64encode(f.read()).decode()
-
-                    return {
-                        "status": "COMPLETED",
-                        "video_base64": video_b64,
-                        "seed": seed
-                    }
-        except:
-            pass
-        time.sleep(2)
-
-    return {"error": "Timeout", "status": "FAILED"}
+    finally:
+        if os.path.exists(input_path): os.remove(input_path)
+        if os.path.exists(job_output_dir): shutil.rmtree(job_output_dir)
 
 
+wait_for_comfy()
 runpod.serverless.start({"handler": handler})
