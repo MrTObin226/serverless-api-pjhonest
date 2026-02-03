@@ -15,7 +15,7 @@ RUN pip install -U "huggingface_hub[hf_transfer]" runpod websocket-client && \
 # Используем коммит от декабря 2024, проверенный с WanVideo 2.2
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /ComfyUI && \
     cd /ComfyUI && \
-    git checkout 1d96127e3c4e9c8f8d7a3b5e9c7d8e9f0a1b2c3d && \  # Стабильный коммит декабря 2024
+    git checkout 1d96127e3c4e9c8f8d7a3b5e9c7d8e9f0a1b2c3d && \
     pip install -r requirements.txt && \
     cd custom_nodes && \
     git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
