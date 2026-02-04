@@ -20,19 +20,19 @@ HEIGHT = 384
 # 40 кадров @ 8 fps = 5 секунд (более стабильно, чем 48/64)
 FRAMES = 40
 FPS = 8
-# Аккуратное повышение качества
-STEPS_DEFAULT = 16
+# Повышаем качество (дольше, но стабильнее и ближе к промпту)
+STEPS_DEFAULT = 20
 STEPS_MIN = 12
-STEPS_MAX = 24
-CFG_DEFAULT = 2.8
-CFG_MIN = 2.0
-CFG_MAX = 4.0
+STEPS_MAX = 28
+CFG_DEFAULT = 3.0
+CFG_MIN = 2.2
+CFG_MAX = 4.2
 # LoRA включаем только при наличии слова "lora" в промпте
-LORA_STRENGTH_DEFAULT = 0.35
-LORA_STRENGTH_MIN = 0.2
-LORA_STRENGTH_MAX = 0.8
+LORA_STRENGTH_DEFAULT = 0.2
+LORA_STRENGTH_MIN = 0.15
+LORA_STRENGTH_MAX = 0.6
 # Стабильность движения
-DEFAULT_DENOISE = 0.8
+DEFAULT_DENOISE = 0.75
 WORKFLOW_PATH = "/workspace/new_Wan22_api.json"
 COMFY_URL = "http://127.0.0.1:8188"
 TIMEOUT_GENERATION = 720  # 12 минут макс на одну задачу
@@ -45,7 +45,7 @@ TEXT_ENCODERS_DIR = f"{MODELS_DIR}/text_encoders"
 CLIP_VISION_DIR = f"{MODELS_DIR}/clip_vision"
 OUTPUT_DIR = "/workspace/ComfyUI/output"
 MAX_VIDEO_MB = int(os.getenv("MAX_VIDEO_MB", "48"))  # лимит под Telegram
-HANDLER_VERSION = "2026-02-04-02"
+HANDLER_VERSION = "2026-02-04-03"
 
 
 def handler(event):
@@ -107,7 +107,8 @@ def handler(event):
         output_prefix = f"wan2_{job_id}"
 
         # Имена моделей (можно переопределить через env)
-        MODEL_FILE = os.getenv("WAN_MODEL_FILE", "Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors")
+        # Для качества лучше HIGH; можно переопределить через env
+        MODEL_FILE = os.getenv("WAN_MODEL_FILE", "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors")
         VAE_FILE = os.getenv("WAN_VAE_FILE", "Wan2_1_VAE_bf16.safetensors")
         T5_FILE = os.getenv("WAN_T5_FILE", "umt5-xxl-enc-bf16.safetensors")
         CLIP_VISION_FILE = os.getenv("WAN_CLIP_VISION_FILE", "clip_vision_h.safetensors")

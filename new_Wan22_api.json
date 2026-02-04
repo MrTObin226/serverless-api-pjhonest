@@ -129,7 +129,7 @@
     "class_type": "WanVideoLoraSelectMulti",
     "inputs": {
       "lora_0": "cyberpunk_style.safetensors",
-      "strength_0": 0.35,
+      "strength_0": 0.2,
       "lora_1": "none",
       "strength_1": 1.0,
       "lora_2": "none",
@@ -170,8 +170,8 @@
   "13": {
     "class_type": "WanVideoSampler",
     "inputs": {
-      "steps": 16,
-      "cfg": 2.8,
+      "steps": 20,
+      "cfg": 3.0,
       "shift": 9.0,
       "seed": 42,
       "force_offload": true,
@@ -180,7 +180,7 @@
       "start_step": 0,
       "end_step": -1,
       "add_noise_to_samples": false,
-      "denoise_strength": 0.8,
+      "denoise_strength": 0.75,
       "batched_cfg": false,
       "rope_function": "comfy",
       "model": [
