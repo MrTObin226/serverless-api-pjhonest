@@ -392,6 +392,7 @@ def _maybe_reencode_for_telegram(path: str):
         "yuv420p",
         out_path,
     ]
+
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if os.path.exists(out_path):
