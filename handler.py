@@ -12,27 +12,27 @@ import torch
 import gc
 import glob
 import subprocess
-# Разрешение для RTX 4090 24GB: баланс качества и стабильности
-# 960x544 - безопасно для 24GB, но всё ещё высокое качество
-WIDTH = 960
-HEIGHT = 544
-# 64 кадра @ 8 fps = 8 секунд (полная длительность)
-FRAMES = 64
+import re
+
+# Разрешение под 24GB VRAM: стабильная анимация без артефактов (>=5 сек)
+WIDTH = 672
+HEIGHT = 384
+# 40 кадров @ 8 fps = 5 секунд (более стабильно, чем 48/64)
+FRAMES = 40
 FPS = 8
-# Оптимальные шаги для качества без OOM
-STEPS_DEFAULT = 18
-STEPS_MIN = 14
+# Аккуратное повышение качества
+STEPS_DEFAULT = 16
+STEPS_MIN = 12
 STEPS_MAX = 24
-# Выше CFG для лучшего следования промпту
-CFG_DEFAULT = 4.5
-CFG_MIN = 3.5
-CFG_MAX = 6.0
-# LoRA: баланс между стилем и стабильностью
-LORA_STRENGTH_DEFAULT = 0.4
-LORA_STRENGTH_MIN = 0.3
-LORA_STRENGTH_MAX = 0.7
-# Полный denoise для максимального эффекта
-DEFAULT_DENOISE = 0.95
+CFG_DEFAULT = 2.8
+CFG_MIN = 2.0
+CFG_MAX = 4.0
+# LoRA включаем только при наличии слова "lora" в промпте
+LORA_STRENGTH_DEFAULT = 0.35
+LORA_STRENGTH_MIN = 0.2
+LORA_STRENGTH_MAX = 0.8
+# Стабильность движения
+DEFAULT_DENOISE = 0.8
 WORKFLOW_PATH = "/workspace/new_Wan22_api.json"
 COMFY_URL = "http://127.0.0.1:8188"
 TIMEOUT_GENERATION = 720  # 12 минут макс на одну задачу
@@ -66,14 +66,7 @@ def handler(event):
             "negative_prompt",
             "low quality, worst quality, jpeg artifacts, blurry, deformed, disfigured, "
             "extra limbs, extra fingers, glitch, color flash, blue screen, distorted face, "
-            "camera shake, sudden motion, extreme blur, erratic motion, random movement, "
-            "bad anatomy, bad proportions, ugly, duplicate, morbid, mutilated, out of frame, "
-            "extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, "
-            "deformed, bad art, bad proportions, extra limbs, cloned face, disfigured, "
-            "gross proportions, malformed limbs, missing arms, missing legs, extra arms, "
-            "extra legs, fused fingers, too many fingers, long neck, lowres, text, error, "
-            "cropped, jpeg artifacts, signature, watermark, username, blurry, artist name, "
-            "static, frozen, no movement, still image, photo, photograph",
+            "camera shake, sudden motion, extreme blur, erratic motion, random movement",
         )
         seed = input_data.get("seed", int(time.time()))
 
@@ -120,7 +113,13 @@ def handler(event):
         CLIP_VISION_FILE = os.getenv("WAN_CLIP_VISION_FILE", "clip_vision_h.safetensors")
         LORA_FILE = os.getenv("WAN_LORA_FILE", "cyberpunk_style.safetensors")
 
-        # Ограничиваем steps, чтобы избежать OOM на 24GB
+        # Включаем LoRA только по слову "lora" в промпте (регистронезависимо)
+        enable_lora = bool(re.search(r"\blora\b", prompt, flags=re.IGNORECASE))
+        if enable_lora:
+            # Уберём служебное слово из текста, чтобы не портить качество
+            prompt = re.sub(r"\blora\b", "", prompt, flags=re.IGNORECASE).strip()
+
+        # Ограничиваем параметры, чтобы избежать OOM и артефактов
         steps = max(STEPS_MIN, min(STEPS_MAX, steps))
         cfg = max(CFG_MIN, min(CFG_MAX, cfg))
         lora_strength = max(LORA_STRENGTH_MIN, min(LORA_STRENGTH_MAX, lora_strength))
@@ -142,7 +141,7 @@ def handler(event):
             missing.append(f"text_encoders/{T5_FILE}")
         if not os.path.exists(clip_path):
             missing.append(f"clip_vision/{CLIP_VISION_FILE}")
-        if not os.path.exists(lora_path):
+        if enable_lora and not os.path.exists(lora_path):
             missing.append(f"loras/{LORA_FILE}")
 
         if missing:
@@ -173,8 +172,12 @@ def handler(event):
             elif node.get("class_type") == "CLIPVisionLoader":
                 node["inputs"]["clip_name"] = CLIP_VISION_FILE
             elif node.get("class_type") == "WanVideoLoraSelectMulti":
-                node["inputs"]["lora_0"] = LORA_FILE
-                node["inputs"]["strength_0"] = lora_strength
+                if enable_lora:
+                    node["inputs"]["lora_0"] = LORA_FILE
+                    node["inputs"]["strength_0"] = lora_strength
+                else:
+                    node["inputs"]["lora_0"] = "none"
+                    node["inputs"]["strength_0"] = 0.0
             elif node.get("class_type") == "WanVideoSampler":
                 node["inputs"]["steps"] = steps
                 node["inputs"]["seed"] = seed
@@ -188,9 +191,6 @@ def handler(event):
                 node["inputs"]["num_frames"] = FRAMES
                 node["inputs"]["width"] = WIDTH
                 node["inputs"]["height"] = HEIGHT
-                # Включаем tiled VAE для экономии памяти на больших разрешениях
-                if "tiled_vae" in node["inputs"]:
-                    node["inputs"]["tiled_vae"] = True
             elif node.get("class_type") == "ImageResizeKJv2":
                 node["inputs"]["width"] = WIDTH
                 node["inputs"]["height"] = HEIGHT
@@ -201,7 +201,7 @@ def handler(event):
                 if "context_overlap" in node["inputs"]:
                     node["inputs"]["context_overlap"] = min(node["inputs"].get("context_overlap", 4), 4)
                 if "context_stride" in node["inputs"]:
-                    node["inputs"]["context_stride"] = max(2, node["inputs"].get("context_stride", 2))
+                    node["inputs"]["context_stride"] = max(4, node["inputs"].get("context_stride", 4))
                 if "freenoise" in node["inputs"]:
                     node["inputs"]["freenoise"] = False
             elif node.get("class_type") in ["VHS_VideoCombine", "SaveVideo"]:
