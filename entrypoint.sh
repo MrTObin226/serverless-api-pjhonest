@@ -43,7 +43,6 @@ for i in $(seq 1 90); do
         exit 1
     fi
 done
-
 # Запуск RunPod serverless worker (handler.py вызывает runpod.serverless.start)
 cd /workspace
 echo "🔌 Запуск RunPod handler (cwd=/workspace)..."
