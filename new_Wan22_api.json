@@ -7,60 +7,220 @@
     }
   },
   "2": {
-    "class_type": "WanVideoModelLoader",
+    "class_type": "ImageResizeKJv2",
     "inputs": {
-      "model": "wan2.2-rapid-mega-aio-v10.safetensors",
-      "vae": "wan2.2-rapid-mega-aio-v10.safetensors"
+      "width": 672,
+      "height": 384,
+      "upscale_method": "lanczos",
+      "keep_proportion": "crop",
+      "pad_color": "0, 0, 0",
+      "crop_position": "center",
+      "divisible_by": 2,
+      "device": "cpu",
+      "per_batch": 0,
+      "image": [
+        "1",
+        0
+      ]
     }
   },
   "3": {
-    "class_type": "WanVideoTextEncode",
+    "class_type": "CLIPVisionLoader",
     "inputs": {
-      "text": "a person smiling naturally",
-      "clip": ["2", 1]
+      "clip_name": "clip_vision_h.safetensors"
     }
   },
   "4": {
+    "class_type": "WanVideoClipVisionEncode",
+    "inputs": {
+      "strength_1": 1.0,
+      "strength_2": 1.0,
+      "crop": "center",
+      "combine_embeds": "average",
+      "force_offload": true,
+      "tiles": 0,
+      "ratio": 0.5,
+      "clip_vision": [
+        "3",
+        0
+      ],
+      "image_1": [
+        "2",
+        0
+      ],
+      "image_2": [
+        "2",
+        0
+      ]
+    }
+  },
+  "5": {
+    "class_type": "WanVideoVAELoader",
+    "inputs": {
+      "model_name": "Wan2_1_VAE_bf16.safetensors",
+      "precision": "bf16"
+    }
+  },
+  "6": {
+    "class_type": "WanVideoImageToVideoEncode",
+    "inputs": {
+      "clip_embeds": [
+        "4",
+        0
+      ],
+      "start_image": [
+        "2",
+        0
+      ],
+      "end_image": [
+        "2",
+        0
+      ],
+      "start_latent_strength": 1,
+      "end_latent_strength": 1,
+      "width": 672,
+      "height": 384,
+      "num_frames": 64,
+      "force_offload": true,
+      "noise_aug_strength": 0,
+      "tiled_vae": false,
+      "vae": [
+        "5",
+        0
+      ],
+      "fun_or_fl2v_model": false
+    }
+  },
+  "7": {
+    "class_type": "LoadWanVideoT5TextEncoder",
+    "inputs": {
+      "model_name": "umt5-xxl-enc-bf16.safetensors",
+      "precision": "bf16",
+      "load_device": "offload_device",
+      "quantization": "disabled"
+    }
+  },
+  "8": {
+    "class_type": "WanVideoTextEncode",
+    "inputs": {
+      "positive_prompt": "a person smiling naturally",
+      "negative_prompt": "low quality, worst quality, jpeg artifacts, blurry, deformed, disfigured, extra limbs, extra fingers",
+      "force_offload": true,
+      "use_disk_cache": false,
+      "device": "gpu",
+      "t5": [
+        "7",
+        0
+      ]
+    }
+  },
+  "9": {
+    "class_type": "WanVideoModelLoader",
+    "inputs": {
+      "model": "Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "base_precision": "bf16",
+      "quantization": "fp8_e4m3fn",
+      "load_device": "offload_device",
+      "attention_mode": "pytorch",
+      "rms_norm_function": "default"
+    }
+  },
+  "10": {
     "class_type": "WanVideoLoraSelectMulti",
     "inputs": {
       "lora_0": "cyberpunk_style.safetensors",
-      "strength_0": 1,
+      "strength_0": 1.0,
       "lora_1": "none",
-      "strength_1": 1,
+      "strength_1": 1.0,
       "lora_2": "none",
-      "strength_2": 1,
+      "strength_2": 1.0,
       "lora_3": "none",
-      "strength_3": 1,
+      "strength_3": 1.0,
       "lora_4": "none",
-      "strength_4": 1,
+      "strength_4": 1.0,
       "low_mem_load": false,
       "merge_loras": false
     }
   },
-  "5": {
+  "11": {
     "class_type": "WanVideoSetLoRAs",
     "inputs": {
-      "model": ["2", 0],
-      "lora": ["4", 0]
+      "model": [
+        "9",
+        0
+      ],
+      "lora": [
+        "10",
+        0
+      ]
     }
   },
-  "6": {
+  "12": {
+    "class_type": "WanVideoContextOptions",
+    "inputs": {
+      "context_frames": 64,
+      "context_overlap": 32,
+      "context_schedule": "static_standard",
+      "context_stride": 4,
+      "freenoise": true,
+      "fuse_method": "linear",
+      "verbose": false
+    }
+  },
+  "13": {
     "class_type": "WanVideoSampler",
     "inputs": {
       "steps": 6,
-      "cfg": 1.0,
+      "cfg": 2.0,
+      "shift": 9.0,
       "seed": 42,
-      "frames": 64,
-      "fps": 8,
-      "width": 672,
-      "height": 384,
-      "model": ["5", 0],
-      "positive": ["3", 0],
-      "negative": ["3", 0],
-      "images": ["1", 0]
+      "force_offload": true,
+      "scheduler": "dpm++_sde",
+      "riflex_freq_index": 0,
+      "start_step": 0,
+      "end_step": -1,
+      "add_noise_to_samples": true,
+      "denoise_strength": 1,
+      "batched_cfg": false,
+      "rope_function": "comfy",
+      "model": [
+        "11",
+        0
+      ],
+      "image_embeds": [
+        "6",
+        0
+      ],
+      "text_embeds": [
+        "8",
+        0
+      ],
+      "context_options": [
+        "12",
+        0
+      ]
     }
   },
-  "7": {
+  "14": {
+    "class_type": "WanVideoDecode",
+    "inputs": {
+      "enable_vae_tiling": false,
+      "tile_x": 272,
+      "tile_y": 272,
+      "tile_stride_x": 144,
+      "tile_stride_y": 128,
+      "normalization": "default",
+      "vae": [
+        "5",
+        0
+      ],
+      "samples": [
+        "13",
+        0
+      ]
+    }
+  },
+  "15": {
     "class_type": "VHS_VideoCombine",
     "inputs": {
       "frame_rate": 8,
@@ -69,8 +229,14 @@
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
-      "save_image": true,
-      "images": ["6", 0]
+      "save_metadata": true,
+      "trim_to_audio": true,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "14",
+        0
+      ]
     }
   }
 }

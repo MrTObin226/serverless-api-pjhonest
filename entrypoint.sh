@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Оптимизации CUDA для RTX 4090 (24GB) — меньше OOM, быстрее аллокации
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True,max_split_size_mb:128
@@ -9,13 +9,16 @@ export CUDA_VISIBLE_DEVICES=0
 # Симлинки на модели из RunPod Network Volume (у тебя всё в /runpod-volume/ComfyUI/models/)
 echo "🔗 Создание симлинков на модели..."
 VOLUME_MODELS="/runpod-volume/ComfyUI/models"
-for sub in checkpoints clip vae loras; do
+for sub in checkpoints clip vae loras diffusion_models text_encoders clip_vision; do
     src="${VOLUME_MODELS}/${sub}"
     dst="/workspace/ComfyUI/models/${sub}"
     mkdir -p "$dst"
     if [ -d "$src" ]; then
         for f in "$src"/*; do
-            [ -e "$f" ] && ln -sf "$f" "$dst/" || true
+            # Не линкуем пустые/битые файлы
+            if [ -f "$f" ] && [ -s "$f" ]; then
+                ln -sf "$f" "$dst/"
+            fi
         done
     fi
 done

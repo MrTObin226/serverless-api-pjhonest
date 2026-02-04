@@ -10,23 +10,28 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Pip и зависимости RunPod
+# 2. PyTorch 2.4+ + CUDA 12.1 (совместимо с Wan/ComfyUI, без ошибки torch.uint64)
 RUN pip3 install --no-cache-dir --upgrade pip && \
-    pip3 install --no-cache-dir runpod requests Pillow websocket-client numpy
+    pip3 install --no-cache-dir torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 \
+    --index-url https://download.pytorch.org/whl/cu121
 
-# 3. ComfyUI и его зависимости (могут поставить старый torch — перезатрём ниже)
+# 3. Зависимости RunPod и handler
+RUN pip3 install --no-cache-dir \
+    runpod \
+    requests \
+    Pillow \
+    websocket-client
+
+# 4. ComfyUI
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /workspace/ComfyUI && \
     pip3 install --no-cache-dir -r /workspace/ComfyUI/requirements.txt
-
-# 4. PyTorch 2.4+ с CUDA 12.1 (обязательно после ComfyUI: torch.uint64 и поддержка)
-RUN pip3 install --no-cache-dir --force-reinstall \
-    torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 \
-    --index-url https://download.pytorch.org/whl/cu121
 
 # 5. Кастомные ноды для Wan2.2 и видео
 RUN cd /workspace/ComfyUI/custom_nodes && \
     git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
     pip3 install --no-cache-dir -r ComfyUI-WanVideoWrapper/requirements.txt && \
+    git clone https://github.com/kijai/ComfyUI-KJNodes.git && \
+    (test -f ComfyUI-KJNodes/requirements.txt && pip3 install --no-cache-dir -r ComfyUI-KJNodes/requirements.txt || true) && \
     git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
     pip3 install --no-cache-dir -r ComfyUI-VideoHelperSuite/requirements.txt
 
