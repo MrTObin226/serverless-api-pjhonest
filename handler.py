@@ -16,18 +16,19 @@ import subprocess
 # Разрешение под 24GB VRAM: стабильная анимация без артефактов (>=5 сек)
 WIDTH = 672
 HEIGHT = 384
-# 48 кадров @ 8 fps = 6 секунд (влезает в 24GB и обычно меньше «срыва» в конце ролика)
-FRAMES = 48
+# 40 кадров @ 8 fps = 5 секунд (более стабильно, чем 48/64)
+FRAMES = 40
 FPS = 8
-STEPS_DEFAULT = 6
-STEPS_MIN = 4
-STEPS_MAX = 8
-CFG_DEFAULT = 3.0
-CFG_MIN = 1.0
-CFG_MAX = 5.0
-LORA_STRENGTH_DEFAULT = 0.7
-LORA_STRENGTH_MIN = 0.0
-LORA_STRENGTH_MAX = 1.2
+STEPS_DEFAULT = 10
+STEPS_MIN = 6
+STEPS_MAX = 14
+CFG_DEFAULT = 2.5
+CFG_MIN = 1.5
+CFG_MAX = 4.0
+LORA_STRENGTH_DEFAULT = 0.5
+LORA_STRENGTH_MIN = 0.2
+LORA_STRENGTH_MAX = 1.0
+DEFAULT_DENOISE = 0.9
 WORKFLOW_PATH = "/workspace/new_Wan22_api.json"
 COMFY_URL = "http://127.0.0.1:8188"
 TIMEOUT_GENERATION = 720  # 12 минут макс на одну задачу
@@ -43,7 +44,6 @@ MAX_VIDEO_MB = int(os.getenv("MAX_VIDEO_MB", "48"))  # лимит под Telegra
 HANDLER_VERSION = "2026-02-04-02"
 
 
-
 def handler(event):
     if event.get("input", {}).get("debug"):
         print(f"Handler version: {HANDLER_VERSION}")
@@ -57,6 +57,7 @@ def handler(event):
         steps = int(input_data.get("steps", STEPS_DEFAULT))
         cfg = float(input_data.get("cfg", CFG_DEFAULT))
         lora_strength = float(input_data.get("lora_strength", LORA_STRENGTH_DEFAULT))
+        denoise_strength = float(input_data.get("denoise_strength", DEFAULT_DENOISE))
         negative_prompt = input_data.get(
             "negative_prompt",
             "low quality, worst quality, jpeg artifacts, blurry, deformed, disfigured, "
@@ -112,6 +113,7 @@ def handler(event):
         steps = max(STEPS_MIN, min(STEPS_MAX, steps))
         cfg = max(CFG_MIN, min(CFG_MAX, cfg))
         lora_strength = max(LORA_STRENGTH_MIN, min(LORA_STRENGTH_MAX, lora_strength))
+        denoise_strength = max(0.6, min(1.0, denoise_strength))
 
         # Быстрый preflight моделей
         model_path = os.path.join(DIFFUSION_DIR, MODEL_FILE)
@@ -167,6 +169,8 @@ def handler(event):
                 node["inputs"]["seed"] = seed
                 if "cfg" in node["inputs"]:
                     node["inputs"]["cfg"] = cfg
+                if "denoise_strength" in node["inputs"]:
+                    node["inputs"]["denoise_strength"] = denoise_strength
             elif node.get("class_type") == "WanVideoImageToVideoEncode":
                 node["inputs"]["num_frames"] = FRAMES
                 node["inputs"]["width"] = WIDTH
@@ -176,9 +180,9 @@ def handler(event):
                 node["inputs"]["height"] = HEIGHT
             elif node.get("class_type") == "WanVideoContextOptions":
                 # Держим контекст ниже num_frames, чтобы избежать предупреждений
-                node["inputs"]["context_frames"] = min(FRAMES - 1, 48) if FRAMES > 1 else 1
+                node["inputs"]["context_frames"] = min(FRAMES - 1, 28) if FRAMES > 1 else 1
                 if "context_overlap" in node["inputs"]:
-                    node["inputs"]["context_overlap"] = min(node["inputs"].get("context_overlap", 24), 24)
+                    node["inputs"]["context_overlap"] = min(node["inputs"].get("context_overlap", 12), 12)
             elif node.get("class_type") in ["VHS_VideoCombine", "SaveVideo"]:
                 node["inputs"]["filename_prefix"] = output_prefix
                 if "frame_rate" in node["inputs"]:
