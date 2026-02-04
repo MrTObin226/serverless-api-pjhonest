@@ -9,8 +9,8 @@
   "2": {
     "class_type": "ImageResizeKJv2",
     "inputs": {
-      "width": 672,
-      "height": 384,
+      "width": 960,
+      "height": 544,
       "upscale_method": "lanczos",
       "keep_proportion": "crop",
       "pad_color": "0, 0, 0",
@@ -37,7 +37,7 @@
       "strength_2": 1.0,
       "crop": "center",
       "combine_embeds": "average",
-      "force_offload": true,
+      "force_offload": false,
       "tiles": 0,
       "ratio": 0.5,
       "clip_vision": [
@@ -78,12 +78,12 @@
       ],
       "start_latent_strength": 1,
       "end_latent_strength": 1,
-      "width": 672,
-      "height": 384,
-      "num_frames": 40,
-      "force_offload": true,
+      "width": 960,
+      "height": 544,
+      "num_frames": 64,
+      "force_offload": false,
       "noise_aug_strength": 0,
-      "tiled_vae": false,
+      "tiled_vae": true,
       "vae": [
         "5",
         0
@@ -104,8 +104,8 @@
     "class_type": "WanVideoTextEncode",
     "inputs": {
       "positive_prompt": "a person smiling naturally",
-      "negative_prompt": "low quality, worst quality, jpeg artifacts, blurry, deformed, disfigured, extra limbs, extra fingers, glitch, color flash, blue screen, distorted face, camera shake, sudden motion, extreme blur",
-      "force_offload": true,
+      "negative_prompt": "low quality, worst quality, jpeg artifacts, blurry, deformed, disfigured, extra limbs, extra fingers, glitch, color flash, blue screen, distorted face, camera shake, sudden motion, extreme blur, erratic motion, random movement, bad anatomy, bad proportions, ugly, duplicate, morbid, mutilated, out of frame, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, bad art, bad proportions, extra limbs, cloned face, disfigured, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck, lowres, text, error, cropped, jpeg artifacts, signature, watermark, username, blurry, artist name, static, frozen, no movement, still image, photo, photograph",
+      "force_offload": false,
       "use_disk_cache": false,
       "device": "gpu",
       "t5": [
@@ -129,7 +129,7 @@
     "class_type": "WanVideoLoraSelectMulti",
     "inputs": {
       "lora_0": "cyberpunk_style.safetensors",
-      "strength_0": 0.5,
+      "strength_0": 0.4,
       "lora_1": "none",
       "strength_1": 1.0,
       "lora_2": "none",
@@ -158,11 +158,11 @@
   "12": {
     "class_type": "WanVideoContextOptions",
     "inputs": {
-      "context_frames": 28,
-      "context_overlap": 12,
+      "context_frames": 24,
+      "context_overlap": 4,
       "context_schedule": "static_standard",
-      "context_stride": 4,
-      "freenoise": true,
+      "context_stride": 2,
+      "freenoise": false,
       "fuse_method": "linear",
       "verbose": false
     }
@@ -170,17 +170,17 @@
   "13": {
     "class_type": "WanVideoSampler",
     "inputs": {
-      "steps": 10,
-      "cfg": 2.5,
+      "steps": 18,
+      "cfg": 4.5,
       "shift": 9.0,
       "seed": 42,
-      "force_offload": true,
+      "force_offload": false,
       "scheduler": "dpm++_sde",
       "riflex_freq_index": 0,
       "start_step": 0,
       "end_step": -1,
-      "add_noise_to_samples": true,
-      "denoise_strength": 0.9,
+      "add_noise_to_samples": false,
+      "denoise_strength": 0.95,
       "batched_cfg": false,
       "rope_function": "comfy",
       "model": [
@@ -228,7 +228,7 @@
       "filename_prefix": "wan2_output",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
-      "crf": 19,
+      "crf": 18,
       "save_metadata": true,
       "trim_to_audio": false,
       "pingpong": false,

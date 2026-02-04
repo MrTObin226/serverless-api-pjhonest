@@ -13,22 +13,27 @@ import gc
 import glob
 import subprocess
 
-# Разрешение под 24GB VRAM: стабильная анимация без артефактов (>=5 сек)
-WIDTH = 672
-HEIGHT = 384
-# 40 кадров @ 8 fps = 5 секунд (более стабильно, чем 48/64)
-FRAMES = 40
+# Разрешение для RTX 4090 24GB: баланс качества и стабильности
+# 960x544 - безопасно для 24GB, но всё ещё высокое качество
+WIDTH = 960
+HEIGHT = 544
+# 64 кадра @ 8 fps = 8 секунд (полная длительность)
+FRAMES = 64
 FPS = 8
-STEPS_DEFAULT = 10
-STEPS_MIN = 6
-STEPS_MAX = 14
-CFG_DEFAULT = 2.5
-CFG_MIN = 1.5
-CFG_MAX = 4.0
-LORA_STRENGTH_DEFAULT = 0.5
-LORA_STRENGTH_MIN = 0.2
-LORA_STRENGTH_MAX = 1.0
-DEFAULT_DENOISE = 0.9
+# Оптимальные шаги для качества без OOM
+STEPS_DEFAULT = 18
+STEPS_MIN = 14
+STEPS_MAX = 24
+# Выше CFG для лучшего следования промпту
+CFG_DEFAULT = 4.5
+CFG_MIN = 3.5
+CFG_MAX = 6.0
+# LoRA: баланс между стилем и стабильностью
+LORA_STRENGTH_DEFAULT = 0.4
+LORA_STRENGTH_MIN = 0.3
+LORA_STRENGTH_MAX = 0.7
+# Полный denoise для максимального эффекта
+DEFAULT_DENOISE = 0.95
 WORKFLOW_PATH = "/workspace/new_Wan22_api.json"
 COMFY_URL = "http://127.0.0.1:8188"
 TIMEOUT_GENERATION = 720  # 12 минут макс на одну задачу
@@ -62,7 +67,14 @@ def handler(event):
             "negative_prompt",
             "low quality, worst quality, jpeg artifacts, blurry, deformed, disfigured, "
             "extra limbs, extra fingers, glitch, color flash, blue screen, distorted face, "
-            "camera shake, sudden motion, extreme blur",
+            "camera shake, sudden motion, extreme blur, erratic motion, random movement, "
+            "bad anatomy, bad proportions, ugly, duplicate, morbid, mutilated, out of frame, "
+            "extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, "
+            "deformed, bad art, bad proportions, extra limbs, cloned face, disfigured, "
+            "gross proportions, malformed limbs, missing arms, missing legs, extra arms, "
+            "extra legs, fused fingers, too many fingers, long neck, lowres, text, error, "
+            "cropped, jpeg artifacts, signature, watermark, username, blurry, artist name, "
+            "static, frozen, no movement, still image, photo, photograph",
         )
         seed = input_data.get("seed", int(time.time()))
 
@@ -171,18 +183,28 @@ def handler(event):
                     node["inputs"]["cfg"] = cfg
                 if "denoise_strength" in node["inputs"]:
                     node["inputs"]["denoise_strength"] = denoise_strength
+                if "add_noise_to_samples" in node["inputs"]:
+                    node["inputs"]["add_noise_to_samples"] = False
             elif node.get("class_type") == "WanVideoImageToVideoEncode":
                 node["inputs"]["num_frames"] = FRAMES
                 node["inputs"]["width"] = WIDTH
                 node["inputs"]["height"] = HEIGHT
+                # Включаем tiled VAE для экономии памяти на больших разрешениях
+                if "tiled_vae" in node["inputs"]:
+                    node["inputs"]["tiled_vae"] = True
             elif node.get("class_type") == "ImageResizeKJv2":
                 node["inputs"]["width"] = WIDTH
                 node["inputs"]["height"] = HEIGHT
             elif node.get("class_type") == "WanVideoContextOptions":
                 # Держим контекст ниже num_frames, чтобы избежать предупреждений
-                node["inputs"]["context_frames"] = min(FRAMES - 1, 28) if FRAMES > 1 else 1
+                # Более стабильные окна контекста + отключаем FreeNoise (уменьшает дрожание)
+                node["inputs"]["context_frames"] = min(FRAMES - 1, 16) if FRAMES > 1 else 1
                 if "context_overlap" in node["inputs"]:
-                    node["inputs"]["context_overlap"] = min(node["inputs"].get("context_overlap", 12), 12)
+                    node["inputs"]["context_overlap"] = min(node["inputs"].get("context_overlap", 4), 4)
+                if "context_stride" in node["inputs"]:
+                    node["inputs"]["context_stride"] = max(2, node["inputs"].get("context_stride", 2))
+                if "freenoise" in node["inputs"]:
+                    node["inputs"]["freenoise"] = False
             elif node.get("class_type") in ["VHS_VideoCombine", "SaveVideo"]:
                 node["inputs"]["filename_prefix"] = output_prefix
                 if "frame_rate" in node["inputs"]:

@@ -306,11 +306,16 @@ async def generate_content(message: types.Message, state: FSMContext, prompt_tex
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {RUNPOD_API_KEY}",
             }
+            # Улучшаем промпт для лучшего качества и соответствия
+            enhanced_prompt = _enhance_prompt(prompt_text)
+            
             payload = {
                 "input": {
                     "image_base64": image_data,
-                    "prompt": prompt_text,
+                    "prompt": enhanced_prompt,
                     "seed": random.randint(1, 1000000000),
+                    "steps": 18,  # Оптимальное качество без OOM
+                    "cfg": 4.5,   # Сильное следование промпту
                 }
             }
 
@@ -438,6 +443,27 @@ async def set_lang(c: types.CallbackQuery):
     await c.message.answer_photo(WELCOME_PHOTO_ID,
                                  caption=get_string(c.from_user.id, "start").format(name=u[3], coins=u[0]),
                                  reply_markup=get_main_ikb(c.from_user.id), parse_mode="Markdown")
+
+
+def _enhance_prompt(prompt: str) -> str:
+    """Улучшает промпт для лучшего качества генерации."""
+    prompt = prompt.strip()
+    if not prompt:
+        return "high quality, detailed, smooth motion, natural movement"
+    
+    # Добавляем качественные дескрипторы, если их нет
+    quality_terms = [
+        "high quality", "detailed", "smooth motion", "natural movement",
+        "realistic", "sharp focus", "professional", "cinematic"
+    ]
+    
+    prompt_lower = prompt.lower()
+    has_quality = any(term in prompt_lower for term in quality_terms)
+    
+    if not has_quality:
+        prompt = f"{prompt}, high quality, detailed, smooth motion, natural movement"
+    
+    return prompt
 
 
 async def main():
