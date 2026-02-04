@@ -127,6 +127,9 @@ def handler(event):
                 node["inputs"]["positive_prompt"] = prompt
             elif node.get("class_type") == "WanVideoModelLoader":
                 node["inputs"]["model"] = MODEL_FILE
+                # Используем валидный режим внимания (без зависимости от sageattention)
+                if "attention_mode" in node["inputs"]:
+                    node["inputs"]["attention_mode"] = "comfy"
             elif node.get("class_type") == "WanVideoVAELoader":
                 node["inputs"]["model_name"] = VAE_FILE
             elif node.get("class_type") == "LoadWanVideoT5TextEncoder":
