@@ -33,9 +33,12 @@ TEXT_ENCODERS_DIR = f"{MODELS_DIR}/text_encoders"
 CLIP_VISION_DIR = f"{MODELS_DIR}/clip_vision"
 OUTPUT_DIR = "/workspace/ComfyUI/output"
 MAX_VIDEO_MB = int(os.getenv("MAX_VIDEO_MB", "48"))  # лимит под Telegram
+HANDLER_VERSION = "2026-02-04-02"
 
 
 def handler(event):
+    if event.get("input", {}).get("debug"):
+        print(f"Handler version: {HANDLER_VERSION}")
     job_id = event.get("id", "unknown")
     input_data = event.get("input", {})
 
@@ -150,7 +153,10 @@ def handler(event):
                 node["inputs"]["width"] = WIDTH
                 node["inputs"]["height"] = HEIGHT
             elif node.get("class_type") == "WanVideoContextOptions":
-                node["inputs"]["context_frames"] = FRAMES
+                # Держим контекст ниже num_frames, чтобы избежать предупреждений
+                node["inputs"]["context_frames"] = min(FRAMES - 1, 48) if FRAMES > 1 else 1
+                if "context_overlap" in node["inputs"]:
+                    node["inputs"]["context_overlap"] = min(node["inputs"].get("context_overlap", 24), 24)
             elif node.get("class_type") in ["VHS_VideoCombine", "SaveVideo"]:
                 node["inputs"]["filename_prefix"] = output_prefix
                 if "frame_rate" in node["inputs"]:
@@ -174,6 +180,14 @@ def handler(event):
         while time.time() - start_time < TIMEOUT_GENERATION:
             try:
                 history = requests.get(f"{COMFY_URL}/history", timeout=10).json()
+                if prompt_id not in history:
+                    # fallback: пробуем запросить конкретный prompt_id
+                    try:
+                        h2 = requests.get(f"{COMFY_URL}/history/{prompt_id}", timeout=10)
+                        if h2.status_code == 200:
+                            history = {prompt_id: h2.json()}
+                    except Exception:
+                        pass
                 if prompt_id not in history:
                     time.sleep(POLL_INTERVAL)
                     continue
@@ -227,7 +241,28 @@ def handler(event):
                         "fps": FPS,
                         "duration_sec": FRAMES // FPS,
                     }
-                return {"error": "В выводе workflow нет видео"}
+                # Если outputs есть, но видео пока не прописалось — ищем по префиксу
+                fallback_video = _find_latest_output(output_prefix)
+                if fallback_video and os.path.exists(fallback_video):
+                    if not _wait_for_stable_file(fallback_video, timeout_sec=30):
+                        time.sleep(POLL_INTERVAL)
+                        continue
+                    fallback_video = _maybe_reencode_for_telegram(fallback_video)
+                    with open(fallback_video, "rb") as f:
+                        video_bytes = f.read()
+                    _cleanup(input_path, fallback_video)
+                    torch.cuda.empty_cache()
+                    gc.collect()
+                    return {
+                        "video_base64": base64.b64encode(video_bytes).decode("utf-8"),
+                        "seed": seed,
+                        "frames": FRAMES,
+                        "fps": FPS,
+                        "duration_sec": FRAMES // FPS,
+                    }
+                # продолжаем ждать до таймаута
+                time.sleep(POLL_INTERVAL)
+                continue
             except Exception as e:
                 print(f"⚠️ Job {job_id} опрос истории: {e}")
             time.sleep(POLL_INTERVAL)

@@ -121,7 +121,7 @@
       "base_precision": "bf16",
       "quantization": "fp8_e4m3fn",
       "load_device": "offload_device",
-      "attention_mode": "pytorch",
+      "attention_mode": "comfy",
       "rms_norm_function": "default"
     }
   },
@@ -158,8 +158,8 @@
   "12": {
     "class_type": "WanVideoContextOptions",
     "inputs": {
-      "context_frames": 64,
-      "context_overlap": 32,
+      "context_frames": 48,
+      "context_overlap": 24,
       "context_schedule": "static_standard",
       "context_stride": 4,
       "freenoise": true,

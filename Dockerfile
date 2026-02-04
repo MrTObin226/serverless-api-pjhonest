@@ -35,7 +35,6 @@ RUN cd /workspace/ComfyUI/custom_nodes && \
     git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
     pip3 install --no-cache-dir -r ComfyUI-VideoHelperSuite/requirements.txt
 
-
 # 6. Копируем только нужные файлы (handler, workflow, entrypoint, config)
 COPY handler.py /workspace/handler.py
 COPY new_Wan22_api.json /workspace/new_Wan22_api.json
