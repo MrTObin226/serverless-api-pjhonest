@@ -43,6 +43,7 @@ MAX_VIDEO_MB = int(os.getenv("MAX_VIDEO_MB", "48"))  # лимит под Telegra
 HANDLER_VERSION = "2026-02-04-02"
 
 
+
 def handler(event):
     if event.get("input", {}).get("debug"):
         print(f"Handler version: {HANDLER_VERSION}")
