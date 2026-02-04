@@ -121,7 +121,7 @@
       "base_precision": "bf16",
       "quantization": "fp8_e4m3fn",
       "load_device": "offload_device",
-      "attention_mode": "comfy",
+      "attention_mode": "sdpa",
       "rms_norm_function": "default"
     }
   },
@@ -170,8 +170,8 @@
   "13": {
     "class_type": "WanVideoSampler",
     "inputs": {
-      "steps": 20,
-      "cfg": 3.0,
+      "steps": 24,
+      "cfg": 3.2,
       "shift": 9.0,
       "seed": 42,
       "force_offload": true,
@@ -180,7 +180,7 @@
       "start_step": 0,
       "end_step": -1,
       "add_noise_to_samples": false,
-      "denoise_strength": 0.75,
+      "denoise_strength": 0.7,
       "batched_cfg": false,
       "rope_function": "comfy",
       "model": [
@@ -228,7 +228,7 @@
       "filename_prefix": "wan2_output",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
-      "crf": 17,
+      "crf": 16,
       "save_metadata": true,
       "trim_to_audio": false,
       "pingpong": false,

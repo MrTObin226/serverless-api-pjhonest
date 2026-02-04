@@ -21,18 +21,18 @@ HEIGHT = 384
 FRAMES = 40
 FPS = 8
 # Повышаем качество (дольше, но стабильнее и ближе к промпту)
-STEPS_DEFAULT = 20
-STEPS_MIN = 12
-STEPS_MAX = 28
-CFG_DEFAULT = 3.0
-CFG_MIN = 2.2
-CFG_MAX = 4.2
+STEPS_DEFAULT = 24
+STEPS_MIN = 16
+STEPS_MAX = 32
+CFG_DEFAULT = 3.2
+CFG_MIN = 2.4
+CFG_MAX = 4.5
 # LoRA включаем только при наличии слова "lora" в промпте
 LORA_STRENGTH_DEFAULT = 0.2
 LORA_STRENGTH_MIN = 0.15
 LORA_STRENGTH_MAX = 0.6
 # Стабильность движения
-DEFAULT_DENOISE = 0.75
+DEFAULT_DENOISE = 0.7
 WORKFLOW_PATH = "/workspace/new_Wan22_api.json"
 COMFY_URL = "http://127.0.0.1:8188"
 TIMEOUT_GENERATION = 720  # 12 минут макс на одну задачу
@@ -45,7 +45,7 @@ TEXT_ENCODERS_DIR = f"{MODELS_DIR}/text_encoders"
 CLIP_VISION_DIR = f"{MODELS_DIR}/clip_vision"
 OUTPUT_DIR = "/workspace/ComfyUI/output"
 MAX_VIDEO_MB = int(os.getenv("MAX_VIDEO_MB", "48"))  # лимит под Telegram
-HANDLER_VERSION = "2026-02-04-03"
+HANDLER_VERSION = "2026-02-04-04"
 
 
 def handler(event):
@@ -145,6 +145,13 @@ def handler(event):
         if enable_lora and not os.path.exists(lora_path):
             missing.append(f"loras/{LORA_FILE}")
 
+        # Проверка на подозрительно маленький файл модели (недокачка)
+        try:
+            if os.path.exists(model_path) and os.path.getsize(model_path) < 10 * 1024 * 1024 * 1024:
+                missing.append(f"diffusion_models/{MODEL_FILE} (слишком маленький файл, похоже недокачан)")
+        except OSError:
+            pass
+
         if missing:
             return {
                 "error": "Не найдены модели: "
@@ -165,7 +172,7 @@ def handler(event):
                 node["inputs"]["model"] = MODEL_FILE
                 # Используем валидный режим внимания (без зависимости от sageattention)
                 if "attention_mode" in node["inputs"]:
-                    node["inputs"]["attention_mode"] = "comfy"
+                    node["inputs"]["attention_mode"] = "sdpa"
             elif node.get("class_type") == "WanVideoVAELoader":
                 node["inputs"]["model_name"] = VAE_FILE
             elif node.get("class_type") == "LoadWanVideoT5TextEncoder":
@@ -392,7 +399,6 @@ def _maybe_reencode_for_telegram(path: str):
         "yuv420p",
         out_path,
     ]
-
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if os.path.exists(out_path):
