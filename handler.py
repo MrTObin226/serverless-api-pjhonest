@@ -13,14 +13,21 @@ import gc
 import glob
 import subprocess
 
-# Разрешение под 24GB VRAM: плавное 8 сек без OOM (64 кадра @ 8 fps)
+# Разрешение под 24GB VRAM: стабильная анимация без артефактов (>=5 сек)
 WIDTH = 672
 HEIGHT = 384
-FRAMES = 64
+# 48 кадров @ 8 fps = 6 секунд (влезает в 24GB и обычно меньше «срыва» в конце ролика)
+FRAMES = 48
 FPS = 8
 STEPS_DEFAULT = 6
 STEPS_MIN = 4
 STEPS_MAX = 8
+CFG_DEFAULT = 3.0
+CFG_MIN = 1.0
+CFG_MAX = 5.0
+LORA_STRENGTH_DEFAULT = 0.7
+LORA_STRENGTH_MIN = 0.0
+LORA_STRENGTH_MAX = 1.2
 WORKFLOW_PATH = "/workspace/new_Wan22_api.json"
 COMFY_URL = "http://127.0.0.1:8188"
 TIMEOUT_GENERATION = 720  # 12 минут макс на одну задачу
@@ -47,6 +54,14 @@ def handler(event):
         image_url = input_data.get("image_url")
         prompt = input_data.get("prompt", "a person smiling naturally")
         steps = int(input_data.get("steps", STEPS_DEFAULT))
+        cfg = float(input_data.get("cfg", CFG_DEFAULT))
+        lora_strength = float(input_data.get("lora_strength", LORA_STRENGTH_DEFAULT))
+        negative_prompt = input_data.get(
+            "negative_prompt",
+            "low quality, worst quality, jpeg artifacts, blurry, deformed, disfigured, "
+            "extra limbs, extra fingers, glitch, color flash, blue screen, distorted face, "
+            "camera shake, sudden motion, extreme blur",
+        )
         seed = input_data.get("seed", int(time.time()))
 
         if not image_base64 and not image_url:
@@ -94,6 +109,8 @@ def handler(event):
 
         # Ограничиваем steps, чтобы избежать OOM на 24GB
         steps = max(STEPS_MIN, min(STEPS_MAX, steps))
+        cfg = max(CFG_MIN, min(CFG_MAX, cfg))
+        lora_strength = max(LORA_STRENGTH_MIN, min(LORA_STRENGTH_MAX, lora_strength))
 
         # Быстрый preflight моделей
         model_path = os.path.join(DIFFUSION_DIR, MODEL_FILE)
@@ -128,6 +145,8 @@ def handler(event):
                 node["inputs"]["text"] = prompt
             elif node.get("class_type") == "WanVideoTextEncode":
                 node["inputs"]["positive_prompt"] = prompt
+                if "negative_prompt" in node["inputs"]:
+                    node["inputs"]["negative_prompt"] = negative_prompt
             elif node.get("class_type") == "WanVideoModelLoader":
                 node["inputs"]["model"] = MODEL_FILE
                 # Используем валидный режим внимания (без зависимости от sageattention)
@@ -141,10 +160,12 @@ def handler(event):
                 node["inputs"]["clip_name"] = CLIP_VISION_FILE
             elif node.get("class_type") == "WanVideoLoraSelectMulti":
                 node["inputs"]["lora_0"] = LORA_FILE
-                node["inputs"]["strength_0"] = 1.0
+                node["inputs"]["strength_0"] = lora_strength
             elif node.get("class_type") == "WanVideoSampler":
                 node["inputs"]["steps"] = steps
                 node["inputs"]["seed"] = seed
+                if "cfg" in node["inputs"]:
+                    node["inputs"]["cfg"] = cfg
             elif node.get("class_type") == "WanVideoImageToVideoEncode":
                 node["inputs"]["num_frames"] = FRAMES
                 node["inputs"]["width"] = WIDTH
@@ -239,7 +260,7 @@ def handler(event):
                         "seed": seed,
                         "frames": FRAMES,
                         "fps": FPS,
-                        "duration_sec": FRAMES // FPS,
+                        "duration_sec": FRAMES / FPS,
                     }
                 # Если outputs есть, но видео пока не прописалось — ищем по префиксу
                 fallback_video = _find_latest_output(output_prefix)
@@ -258,7 +279,7 @@ def handler(event):
                         "seed": seed,
                         "frames": FRAMES,
                         "fps": FPS,
-                        "duration_sec": FRAMES // FPS,
+                        "duration_sec": FRAMES / FPS,
                     }
                 # продолжаем ждать до таймаута
                 time.sleep(POLL_INTERVAL)

@@ -80,7 +80,7 @@
       "end_latent_strength": 1,
       "width": 672,
       "height": 384,
-      "num_frames": 64,
+      "num_frames": 48,
       "force_offload": true,
       "noise_aug_strength": 0,
       "tiled_vae": false,
@@ -104,7 +104,7 @@
     "class_type": "WanVideoTextEncode",
     "inputs": {
       "positive_prompt": "a person smiling naturally",
-      "negative_prompt": "low quality, worst quality, jpeg artifacts, blurry, deformed, disfigured, extra limbs, extra fingers",
+      "negative_prompt": "low quality, worst quality, jpeg artifacts, blurry, deformed, disfigured, extra limbs, extra fingers, glitch, color flash, blue screen, distorted face, camera shake, sudden motion, extreme blur",
       "force_offload": true,
       "use_disk_cache": false,
       "device": "gpu",
@@ -129,7 +129,7 @@
     "class_type": "WanVideoLoraSelectMulti",
     "inputs": {
       "lora_0": "cyberpunk_style.safetensors",
-      "strength_0": 1.0,
+      "strength_0": 0.7,
       "lora_1": "none",
       "strength_1": 1.0,
       "lora_2": "none",
@@ -158,8 +158,8 @@
   "12": {
     "class_type": "WanVideoContextOptions",
     "inputs": {
-      "context_frames": 48,
-      "context_overlap": 24,
+      "context_frames": 32,
+      "context_overlap": 16,
       "context_schedule": "static_standard",
       "context_stride": 4,
       "freenoise": true,
@@ -171,7 +171,7 @@
     "class_type": "WanVideoSampler",
     "inputs": {
       "steps": 6,
-      "cfg": 2.0,
+      "cfg": 3.0,
       "shift": 9.0,
       "seed": 42,
       "force_offload": true,
@@ -230,7 +230,7 @@
       "pix_fmt": "yuv420p",
       "crf": 19,
       "save_metadata": true,
-      "trim_to_audio": true,
+      "trim_to_audio": false,
       "pingpong": false,
       "save_output": true,
       "images": [
