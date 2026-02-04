@@ -49,6 +49,7 @@ RUN mkdir -p /workspace/ComfyUI/input /workspace/ComfyUI/output \
     /workspace/ComfyUI/models/loras \
     && chmod +x /workspace/entrypoint.sh
 
+
 # RunPod монтирует том с моделями в /runpod-volume
 # Симлинки создаются в entrypoint при старте
 ENTRYPOINT ["/workspace/entrypoint.sh"]
