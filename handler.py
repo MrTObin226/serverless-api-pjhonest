@@ -12,7 +12,6 @@ import torch
 import gc
 import glob
 import subprocess
-
 # Разрешение для RTX 4090 24GB: баланс качества и стабильности
 # 960x544 - безопасно для 24GB, но всё ещё высокое качество
 WIDTH = 960
