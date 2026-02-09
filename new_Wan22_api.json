@@ -9,8 +9,8 @@
   "2": {
     "class_type": "ImageResizeKJv2",
     "inputs": {
-      "width": 672,
-      "height": 384,
+      "width": 576,
+      "height": 320,
       "upscale_method": "lanczos",
       "keep_proportion": "crop",
       "pad_color": "0, 0, 0",
@@ -78,8 +78,8 @@
       ],
       "start_latent_strength": 1,
       "end_latent_strength": 1,
-      "width": 672,
-      "height": 384,
+      "width": 576,
+      "height": 320,
       "num_frames": 40,
       "force_offload": true,
       "noise_aug_strength": 0,
@@ -117,7 +117,7 @@
   "9": {
     "class_type": "WanVideoModelLoader",
     "inputs": {
-      "model": "Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "model": "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
       "base_precision": "bf16",
       "quantization": "fp8_e4m3fn",
       "load_device": "offload_device",
@@ -129,7 +129,7 @@
     "class_type": "WanVideoLoraSelectMulti",
     "inputs": {
       "lora_0": "cyberpunk_style.safetensors",
-      "strength_0": 0.2,
+      "strength_0": 0.25,
       "lora_1": "none",
       "strength_1": 1.0,
       "lora_2": "none",
@@ -158,8 +158,8 @@
   "12": {
     "class_type": "WanVideoContextOptions",
     "inputs": {
-      "context_frames": 16,
-      "context_overlap": 4,
+      "context_frames": 12,
+      "context_overlap": 3,
       "context_schedule": "static_standard",
       "context_stride": 4,
       "freenoise": false,
@@ -170,8 +170,8 @@
   "13": {
     "class_type": "WanVideoSampler",
     "inputs": {
-      "steps": 24,
-      "cfg": 3.2,
+      "steps": 8,
+      "cfg": 2.6,
       "shift": 9.0,
       "seed": 42,
       "force_offload": true,
@@ -180,7 +180,7 @@
       "start_step": 0,
       "end_step": -1,
       "add_noise_to_samples": false,
-      "denoise_strength": 0.7,
+      "denoise_strength": 0.8,
       "batched_cfg": false,
       "rope_function": "comfy",
       "model": [
@@ -228,7 +228,7 @@
       "filename_prefix": "wan2_output",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
-      "crf": 16,
+      "crf": 18,
       "save_metadata": true,
       "trim_to_audio": false,
       "pingpong": false,

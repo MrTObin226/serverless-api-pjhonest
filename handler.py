@@ -1,6 +1,6 @@
 """
-RunPod Serverless handler: фото -> 8 сек видео (Wan2.2).
-Оптимизировано под RTX 4090 24GB: разрешение и шаги подобраны против OOM.
+RunPod Serverless handler: фото -> 5 сек видео (Wan2.2).
+Оптимизировано под RTX 4090 24GB: профиль скорости < 1-2 мин для 5 сек.
 """
 import runpod
 import requests
@@ -14,25 +14,25 @@ import glob
 import subprocess
 import re
 
-# Разрешение под 24GB VRAM: стабильная анимация без артефактов (>=5 сек)
-WIDTH = 672
-HEIGHT = 384
-# 40 кадров @ 8 fps = 5 секунд (более стабильно, чем 48/64)
+# Разрешение под 24GB VRAM: быстрые 5 секунд (цель < 1 мин, максимум 2 мин)
+WIDTH = 576
+HEIGHT = 320
+# 40 кадров @ 8 fps = 5 секунд
 FRAMES = 40
 FPS = 8
-# Повышаем качество (дольше, но стабильнее и ближе к промпту)
-STEPS_DEFAULT = 24
-STEPS_MIN = 16
-STEPS_MAX = 32
-CFG_DEFAULT = 3.2
-CFG_MIN = 2.4
-CFG_MAX = 4.5
+# Быстрый профиль (можно поднять steps вручную, если время позволяет)
+STEPS_DEFAULT = 8
+STEPS_MIN = 6
+STEPS_MAX = 12
+CFG_DEFAULT = 2.6
+CFG_MIN = 2.0
+CFG_MAX = 3.5
 # LoRA включаем только при наличии слова "lora" в промпте
-LORA_STRENGTH_DEFAULT = 0.2
+LORA_STRENGTH_DEFAULT = 0.25
 LORA_STRENGTH_MIN = 0.15
 LORA_STRENGTH_MAX = 0.6
 # Стабильность движения
-DEFAULT_DENOISE = 0.7
+DEFAULT_DENOISE = 0.8
 WORKFLOW_PATH = "/workspace/new_Wan22_api.json"
 COMFY_URL = "http://127.0.0.1:8188"
 TIMEOUT_GENERATION = 720  # 12 минут макс на одну задачу
@@ -45,7 +45,25 @@ TEXT_ENCODERS_DIR = f"{MODELS_DIR}/text_encoders"
 CLIP_VISION_DIR = f"{MODELS_DIR}/clip_vision"
 OUTPUT_DIR = "/workspace/ComfyUI/output"
 MAX_VIDEO_MB = int(os.getenv("MAX_VIDEO_MB", "48"))  # лимит под Telegram
-HANDLER_VERSION = "2026-02-04-04"
+HANDLER_VERSION = "2026-02-04-06"
+
+def _validate_safetensors_header(path: str, label: str):
+    """
+    Detects truncated/corrupted downloads early.
+    safe_open reads only the header; it does not load weights into RAM/VRAM.
+    """
+    try:
+        from safetensors import safe_open  # type: ignore
+    except Exception:
+        # ComfyUI normally installs safetensors; if not present, skip header validation.
+        return None
+
+    try:
+        with safe_open(path, framework="pt", device="cpu") as f:
+            _ = f.keys()
+        return None
+    except Exception as e:
+        return f"{label} looks corrupted (safetensors header read failed): {e}"
 
 
 def handler(event):
@@ -107,7 +125,7 @@ def handler(event):
         output_prefix = f"wan2_{job_id}"
 
         # Имена моделей (можно переопределить через env)
-        # Для качества лучше HIGH; можно переопределить через env
+        # Для скорости: HIGH остаётся дефолтом (меньше артефактов), можно переключить на LOW через env
         MODEL_FILE = os.getenv("WAN_MODEL_FILE", "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors")
         VAE_FILE = os.getenv("WAN_VAE_FILE", "Wan2_1_VAE_bf16.safetensors")
         T5_FILE = os.getenv("WAN_T5_FILE", "umt5-xxl-enc-bf16.safetensors")
@@ -159,6 +177,31 @@ def handler(event):
                 + ". Проверьте /runpod-volume/ComfyUI/models/..."
             }
 
+        # Extra integrity checks: non-empty is not enough; truncated files often produce rainbow-noise output.
+        corrupt = []
+        for p, label in (
+            (model_path, f"Model {MODEL_FILE}"),
+            (vae_path, f"VAE {VAE_FILE}"),
+            (t5_path, f"T5 {T5_FILE}"),
+            (clip_path, f"CLIP-Vision {CLIP_VISION_FILE}"),
+        ):
+            err = _validate_safetensors_header(p, label)
+            if err:
+                corrupt.append(err)
+        if enable_lora:
+            err = _validate_safetensors_header(lora_path, f"LoRA {LORA_FILE}")
+            if err:
+                corrupt.append(err)
+        if corrupt:
+            return {"error": "Corrupted model files detected: " + " | ".join(corrupt)}
+
+        if input_data.get("debug"):
+            print(
+                f"Using model={MODEL_FILE} vae={VAE_FILE} t5={T5_FILE} clip_vision={CLIP_VISION_FILE} "
+                f"lora={'on' if enable_lora else 'off'} steps={steps} cfg={cfg} denoise={denoise_strength} "
+                f"size={WIDTH}x{HEIGHT} frames={FRAMES} fps={FPS}"
+            )
+
         for node in workflow.values():
             if node.get("class_type") == "LoadImage":
                 node["inputs"]["image"] = input_name
@@ -203,11 +246,10 @@ def handler(event):
                 node["inputs"]["width"] = WIDTH
                 node["inputs"]["height"] = HEIGHT
             elif node.get("class_type") == "WanVideoContextOptions":
-                # Держим контекст ниже num_frames, чтобы избежать предупреждений
-                # Более стабильные окна контекста + отключаем FreeNoise (уменьшает дрожание)
-                node["inputs"]["context_frames"] = min(FRAMES - 1, 16) if FRAMES > 1 else 1
+                # Быстрый профиль: короткие окна контекста + без FreeNoise
+                node["inputs"]["context_frames"] = min(FRAMES - 1, 12) if FRAMES > 1 else 1
                 if "context_overlap" in node["inputs"]:
-                    node["inputs"]["context_overlap"] = min(node["inputs"].get("context_overlap", 4), 4)
+                    node["inputs"]["context_overlap"] = min(node["inputs"].get("context_overlap", 3), 3)
                 if "context_stride" in node["inputs"]:
                     node["inputs"]["context_stride"] = max(4, node["inputs"].get("context_stride", 4))
                 if "freenoise" in node["inputs"]:
