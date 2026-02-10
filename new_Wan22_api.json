@@ -159,7 +159,7 @@
     "class_type": "WanVideoContextOptions",
     "inputs": {
       "context_frames": 12,
-      "context_overlap": 3,
+      "context_overlap": 4,
       "context_schedule": "static_standard",
       "context_stride": 4,
       "freenoise": false,

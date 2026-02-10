@@ -249,7 +249,8 @@ def handler(event):
                 # Быстрый профиль: короткие окна контекста + без FreeNoise
                 node["inputs"]["context_frames"] = min(FRAMES - 1, 12) if FRAMES > 1 else 1
                 if "context_overlap" in node["inputs"]:
-                    node["inputs"]["context_overlap"] = min(node["inputs"].get("context_overlap", 3), 3)
+                    # валидатор требует минимум 4
+                    node["inputs"]["context_overlap"] = max(4, node["inputs"].get("context_overlap", 4))
                 if "context_stride" in node["inputs"]:
                     node["inputs"]["context_stride"] = max(4, node["inputs"].get("context_stride", 4))
                 if "freenoise" in node["inputs"]:
